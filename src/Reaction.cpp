@@ -21,7 +21,7 @@ int Reaction::perform(
 	const long& nTimes,
 	const string& strReaction,
 	const double& time,
-	map<string,vector<long>>& compTrajectories, 
+	map<string,vector<long>>& compTrajectories,
 	unsigned indxTraj,
 	unsigned leafcount,
 	vector<Node*>* roots,
@@ -48,7 +48,7 @@ int Reaction::perform(
 						warning("Error in rooting. No node left for rooting.");
 					}
 					else{
-						performRooting(strReaction,time,roots);					
+						performRooting(strReaction,time,roots);
 					}
 				}
 				else{
@@ -130,7 +130,7 @@ int Reaction::evalSampling(
 		unsigned nbSampling = 0;	// nombre d'echantillonnages simples a realiser
 		unsigned nbReSampling = 0;	// nombre de "re-"echantillonnage a realiser
 		if( isresampling || (!isSampledDeath() && isresampling) ){
-			nbReSampling = rhyper(nTimes, (double) to_[0]->getOldUnsampledNodes(), (to_[0]->getSize() - ((double) to_[0]->getOldNodes() - (double) to_[0]->getOldUnsampledNodes()) ) );		
+			nbReSampling = rhyper(nTimes, (double) to_[0]->getOldUnsampledNodes(), (to_[0]->getSize() - ((double) to_[0]->getOldNodes() - (double) to_[0]->getOldUnsampledNodes()) ) );
 		}
 		nbSampling = nTimes - nbReSampling;
 		for(unsigned i = 0 ; i < nbSampling ; i++){
@@ -144,7 +144,7 @@ int Reaction::evalSampling(
 		} else{
 			count = -1;
 		}
-	
+
 	return count;
 }
 
@@ -164,7 +164,7 @@ int Reaction::evalCoalescence(
 
 		unsigned nbCoal = 0;
 		unsigned nbInviCoal = 0;
-		
+
 		unsigned nbDonnor = 0;
 		unsigned nbRecipient = rhyper( nTimes, (double) from_[1-indexFrom]->getOldNodes(), from_[1-indexFrom]->getSize());
 
@@ -188,7 +188,7 @@ int Reaction::evalCoalescence(
 			res = -1;
 		}
 
-		if(fullTraj & ((nbInviCoal + nbCoal) == 0) ){ 
+		if(fullTraj & ((nbInviCoal + nbCoal) == 0) ){
 			// dans les cas où il n'y a pas eu de feuilles crées : si coalescence -> on passe à la prochaine reaction
 			res = -2; // type de warning -> continue dans la simulation
 		}
@@ -263,7 +263,7 @@ bool Reaction::performSampling(
 		ok = ok & to_[0]->incrementNewNodes();
 
 		count_++;
-		
+
 		return ok;
 }
 
@@ -377,4 +377,3 @@ bool Reaction::performMigration(
 
 		return ok;
 }
-

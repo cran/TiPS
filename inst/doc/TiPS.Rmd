@@ -5,12 +5,12 @@ output:
   html_document:
     theme: cerulean
     toc: yes
-    toc_float: true  
+    toc_float: true
 vignette: >
   %\VignetteIndexEntry{TiPS}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -50,7 +50,7 @@ library(ape)
 
 ## Building the simulator
 
-We use the classical SIR epidemiological model to illustrate the functionning of `TiPS`. 
+We use the classical SIR epidemiological model to illustrate the functionning of `TiPS`.
 
 This SIR model can be described by a system of reactions such as
 
@@ -64,7 +64,7 @@ $$
      	I \xrightarrow[]{\gamma I} R
 $$
 
-or by a system of differential equations such as 
+or by a system of differential equations such as
 
 $$
 \frac{dS}{dt} = -\beta S I
@@ -90,7 +90,7 @@ We then build the simulator that will allow us to run multiple trajectories:
 sir_simu <- build_simulator(reactions)
 ```
 
-This typically takes 10-15' as it involves compilation.
+This typically takes 10-15'' as it involves compilation.
 
 ## Defining simulations parameters
 
@@ -120,7 +120,7 @@ dT <- 0.001
 
 ## Running simulations
 
-In some simulations, the population size of a deme compartment may be zero before the upper time limit is reached, because of stochasticity or parameter values. In this case, the simulation is considered to have failed and is halted. 
+In some simulations, the population size of a deme compartment may be zero before the upper time limit is reached, because of stochasticity or parameter values. In this case, the simulation is considered to have failed and is halted.
 
 To bypass these failures, we can define the following wrapper:
 ```{r}
@@ -146,7 +146,7 @@ traj_dm <- safe_sir_simu(
   times = time)
 ```
 
-The output consists of a named list containing the reactions of the model (with ```$reactions```), the parameter values (with ```$values```), the time range (with ```$times```), the algorithm used to simulate (with ```$algo```), the time-step in case the algorithm is $\tau$-leap or the mixed algorithm (with ```$dT```) and finally the simulated trajectory (with ```$traj```) :
+The output consists of a named list containing the reactions of the model (with ```$reactions```), the parameter values (with ```$values```), the time range (with ```$times```), the algorithm used to simulate (with ```$algo```), the time-step in case the algorithm is $\tau$-leap or the mixed algorithm (with ```$dT```), the random seed that was generated and was used to simulate trajectories (with ```$seed```) and finally the simulated trajectory (with ```$traj```) :
 
 ```{r}
 names(traj_dm)
@@ -163,6 +163,19 @@ The trajectory can readily be plotted using the ```plot()``` function:
 plot(traj_dm)
 ```
 
+You can also specify the seed to generate reproducible results with the parameter ```seed```. By default, its value is null (set to 0), in which case the seed is randomly generated. Let's fix the seed to 166 :
+```{r}
+traj_dm <- sir_simu(
+  paramValues = theta,
+  initialStates = initialStates,
+  times = time,
+  seed = 166)
+```
+When running this multiple times, you will always get the exact same results :
+
+```{r}
+head(traj_dm$traj)
+```
 
 ### $\tau$-leap method
 
@@ -210,14 +223,14 @@ plot(traj_mm)
 
 A great advantage of `TiPS`, besides its compulational efficiency, is that it can generate phylogenies from the population dynamics trajectories using a coalescent approach.
 
-For this, we may need a vector of sampling dates. 
+For this, we may need a vector of sampling dates.
 
 For the SIR example, these are stored here:
 ```{r}
 dates <- system.file("extdata", "SIR-dates.txt", package = "TiPS")
 ```
 
-The `simulate_tree` function simulates a phylogeny from a trajectory object and using a set of sampling dates: 
+The `simulate_tree` function simulates a phylogeny from a trajectory object and using a set of sampling dates:
 
 ```{r, results = "hide"}
 sir_tree <- simulate_tree(
@@ -346,9 +359,9 @@ bd_tree <- simulate_tree(
 
 This is done using a coaslescence process informed by the trajectory. Therefore, each internal node of the phylogeny corresponds to a coalescence event and is associated with a label stoed in `$node.label`.
 
-In our two-patches example, there are two types of coalesence: I2 individuals creating a new I2 individual, and I1 individuals creating a new I1 individual. 
+In our two-patches example, there are two types of coalesence: I2 individuals creating a new I2 individual, and I1 individuals creating a new I1 individual.
 
-We can plot the phylogeny and color the internal nodes based on the type of coalescence. 
+We can plot the phylogeny and color the internal nodes based on the type of coalescence.
 
 First we generate a vector of colors for the nodes (if we find `I2` in the node label we color it in blue, otherwise in red):
 ```{r results = "hide"}
@@ -382,7 +395,7 @@ bd_tree <- simulate_tree(
   addInfos = TRUE) # additional info for each node
 ```
 
-We can plot the phylogeny and color the external nodes given the compartment. 
+We can plot the phylogeny and color the external nodes given the compartment.
 
 ```{r results = "hide"}
 tips_cols <- ifelse(grepl(x=bd_tree$tip.label,pattern="I2"),"blue","red")

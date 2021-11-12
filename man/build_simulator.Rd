@@ -17,6 +17,8 @@ The mandatory arguments of the returned function are the followinf :
 \item{paramValues}{numerical list : values of parameters of the model},
 \item{initialStates}{numerical vector : values of initial number of individuals},
 \item{times}{numerical vector : time intervals.}
+\item{nTrials}{integer : number of trials of simulation.}
+\item{seed}{integer : seed for reproducible simulations.}
 \item{verbose}{logical: whether to print some information}
 }
 \description{
@@ -27,19 +29,20 @@ The returned function will be used to simulate trajectories, that can further be
 # Build a simulator for an SIR model
 reactions <- c('S [beta * S * I] -> I',
                'I [gamma * I] -> R')
-               
+
 sir.simu <- build_simulator(reactions = reactions)
-# Run a simulation of a trajectory 
+# Run a simulation of a trajectory
 sir_traj <- sir.simu(paramValues = list(gamma = 1, beta = 2e-4),
                      initialStates = c(I = 1, S = 9999, R = 0),
                      times = c(0, 20),
-                     nTrials = 10)
-                 
+                     nTrials = 10,
+                     seed=166)
+
 # The output is a list with the trajectory, the algorithm, the parameter values and the reactions
 names(sir_traj)
 
 # Print head of the simulated trajectory
-head(sir_traj$traj) 
+head(sir_traj$traj)
 
 # Plot the trajectory
 plot(sir_traj)

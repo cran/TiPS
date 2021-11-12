@@ -30,13 +30,13 @@
 #' @param functions a list of functions
 #' @NoRd
 simulator_generator<-function(reactions, functions=NULL){
-  
+
   message("Building the simulator ...")
 
 
     ############### CONSTRUCTEUR ###########
   constructor_gillespie<-'
-  reactions(List params, NumericVector initialStates, NumericVector times, double deltaT, int nTrials, bool isSwitchingMode, bool verbose) : nTrials_(nTrials), deltaT_(deltaT), isSwitchingMode_(isSwitchingMode){
+  reactions(List params, NumericVector initialStates, NumericVector times, double deltaT, int nTrials, bool isSwitchingMode, bool verbose, long seed) : nTrials_(nTrials), deltaT_(deltaT), isSwitchingMode_(isSwitchingMode), seed_(seed){
     verbose_ = verbose;
   for (unsigned i = 0; i < params.size(); i++){
   parameters_.push_back(params[i]);
@@ -44,7 +44,9 @@ simulator_generator<-function(reactions, functions=NULL){
   initialStates_ = initialStates;
   vTimes_ = times;
   initStructures();
-  initRandomSeed();
+  if(seed_ == 0){
+    initRandomSeed();
+  }
   randomGenerator_.seed(seed_);
   time_ = vTimes_[0];
   }
@@ -127,7 +129,7 @@ simulator_generator<-function(reactions, functions=NULL){
   reactIndx = whichReaction(totalRate);
   performReaction(reactIndx,1);
   updateCompartments();
-  updateDataFrameOutput(); 
+  updateDataFrameOutput();
   updatereactionsOutput(reactIndx,1);
   updateRates();
   return jump;
@@ -319,7 +321,7 @@ simulator_generator<-function(reactions, functions=NULL){
   struct timeval start;
   gettimeofday(&start,NULL);
   seed_ = start.tv_usec;
-  randomGenerator_.seed(seed_); 
+  randomGenerator_.seed(seed_);
   }
   '
 
@@ -329,7 +331,7 @@ simulator_generator<-function(reactions, functions=NULL){
   struct timeval start;
   gettimeofday(&start,NULL);
   seed_ = start.tv_usec;
-  randomGenerator_.seed(seed_); 
+  randomGenerator_.seed(seed_);
   }
   '
 
@@ -347,7 +349,8 @@ simulator_generator<-function(reactions, functions=NULL){
   ############## WHICH REACTION ##############
   whichReac<-"
   int whichReaction(const double& totalRate){
-    double r = (double)rand() / RAND_MAX ;
+    std::uniform_real_distribution<double> uniform(0.0, 1.0);
+    double r = uniform(randomGenerator_);
     double sum = 0.0 ;
     int indx = 0;
     vector<double>::iterator it;
@@ -435,11 +438,11 @@ simulator_generator<-function(reactions, functions=NULL){
     return (is_true(all(as<LogicalVector>( wrap(isEnough)) == TRUE))) ;
   }
   '
-  
+
   ############ reactions #############
   lnR<-length(reactions)
   lignes<-reactions
-  
+
   rates<-unlist(stringr::str_extract_all(string = lignes, pattern = "(?<=\\[).*(?=\\])"))
   vReac<-paste("vreactions.assign(",lnR,',"");',sep="")
   updateRates<-""
@@ -449,7 +452,7 @@ simulator_generator<-function(reactions, functions=NULL){
     #### UPDATE RATES FUNCTION ####
     updateRates<-paste(updateRates,paste("vRates_[",i-1,"]=",rates[i],";",sep=""),sep="\n\t")
   }
-  
+
   ## Definir les individus et les parametres
   indivNames<-c()
   for (i in 1:lnR) {
@@ -462,13 +465,13 @@ simulator_generator<-function(reactions, functions=NULL){
   }
   indivNames=indivNames[!grepl("^[[:digit:]]+$",indivNames)]
   indivNames=unique(indivNames)
-  
+
   all=unique(unlist(stringr::str_extract_all(unlist(rates),stringr::boundary("word"))))
   paramsNames=all[which(all %notin% indivNames)]
   paramNames=paramsNames[!grepl("^[[:digit:]]+$",paramsNames)]
   lnP<-length(paramNames)
   lnI<-length(indivNames)
-  
+
   ### PRIVATE ###
   doubles<-paste("double time_","deltaT_", sep=" , ")
   output<-paste("vector<double> ", "dfTimes;",sep="")
@@ -511,25 +514,25 @@ simulator_generator<-function(reactions, functions=NULL){
       if(froms[j]!="0"){
         From<-paste(From,paste("vFrom[",i-1,'].push_back("',froms[j],'");',sep=""),sep="\n\t")
       }
-    }  
+    }
     for(k in 1:length(tos)){
       if(tos[k]!="0"){
         To<-paste(To,paste("vTo[",i-1,'].push_back("',tos[k],'");',sep=""),sep="\n\t")
       }
     }
   }
-  
-  
+
+
   randGenerator<-randGenerator
   constructor<-constructor_gillespie
   initRandomGenerator<-initRandomGenerator
-  
+
   ########### ADD FUNCTIONS TO COMPUTE VALUES ##########
   RtoCfunctions = ""
   updateParam=""
   if(!is.null(functions)){
     n=length(functions)
-    
+
     for (i in 1:n) {
       if(grepl('[=]',functions[i])){
         name=strsplit(x=functions[i],split='=')[[1]][1]
@@ -539,25 +542,25 @@ simulator_generator<-function(reactions, functions=NULL){
         fonction=strsplit(x=functions[i],split='<-')[[1]][2]
       }
       RtoCfunctions=paste(RtoCfunctions,"double get",name,"(){\n\treturn (",fonction,") ;\n}\n",sep="")
-      
+
       updateParam=paste(updateParam,"\t",name," = get",name,"() ; \n",sep="")
     }
   }
-  
+
   ############# INIT STRUCTURES ###########
   initStructures<-paste('void initStructures(){',compartments,"vector<string> indiv(0);",paste("vRates_.assign(",lnR,",0);",sep=""),paste("vFrom.assign(",lnR,",indiv);",sep=""),paste("vTo.assign(",lnR,",indiv);",sep=""),From,To,vReac,"updateCompartments();",'dfreactions.assign(1,"init");','dfNrep.assign(1,1);',sep="\n\t")
   initStructures<-paste(initStructures,'}',sep='\n')
   ############## UPDATE RATES ###########
   updateRates=paste(updateParam,updateRates,sep="")
   updateRates<-paste("void updateRates(){",updateRates,"}",sep="\n")
-  
+
   ############## UPDATE COMPARTMENTS ###########
   updateCompartments<-paste("void updateCompartments(){",updateCompartments,"}",sep="\n")
-  
+
   ############### CONTINUE CONDITION ################
   continueCondition<-paste("bool continueCondition(unsigned timePart){",paste("return ( computeTotalRate()!=0 && ((time_ < vTimes_[timePart+1]) && !(abs(vTimes_[timePart+1] - time_)<(deltaT_/10)))) ;",sep=""),sep="\n\t")
   continueCondition<-paste(continueCondition,"}",sep="\n")
-  
+
   computeTotRate<-computeTotRate
   whichReac<-whichReac
   performReac<-performReac
@@ -566,94 +569,94 @@ simulator_generator<-function(reactions, functions=NULL){
   runDirect<-runDirect_gillespie
   directAlgo<-directAlgo_gilespie
   gillespieSimulation<-gillespieSimulation_gil
-  
+
   listL<-paste("int numCol=",lnI+3,";",sep="")
   listL<-paste(listL,"Rcpp::List long_list(numCol);","Rcpp::CharacterVector namevec(numCol);",sep="\n\t")
-  listL<-paste(listL,longList,nameVec,'long_list.attr("names") = namevec;','long_list.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, dfTimes.size());','long_list.attr("class") = "data.frame";','auto elapsed = stop_ - start_;','     if(verbose_){Rcout << "Operation took: " << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " microseconds." << endl;}','return long_list;',sep="\n\t")
-  
+  listL<-paste(listL,longList,nameVec,'long_list.attr("names") = namevec;','long_list.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, dfTimes.size());','long_list.attr("class") = "data.frame";','List res;','res["traj"] = long_list;','res["seed"] = seed_;','auto elapsed = stop_ - start_;','     if(verbose_){Rcout << "Operation took: " << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " microseconds." << endl;}','return res;',sep="\n\t")
+
   gillespieSimulation<-paste(gillespieSimulation,listL,'}',sep="\n\t")
   # gillespieSimulation<-paste(gillespieSimulation,paste('else{','Rcpp::stop("Failure. You should try other parameter values.");','}',sep="\n"),'}',sep='\n')
-  
+
   gillespieSimulation<-paste(gillespieSimulation,paste('else{','return NULL;','}',sep="\n"),'}',sep='\n')
-  
+
   ################### UPDATE DATAFRAME OUTPUT ####################
   updateOutput<-paste("void updateDataFrameOutput(){","dfTimes.push_back(time_);",updateOutput,sep="\n\t")
   updateOutput<-paste(updateOutput,"}",sep="\n")
-  
+
   updateReacOutput<-updateReacOutput
-  
+
   ################### RE INITIALIZE DATA FRAME ##############
   reInitialize<-paste(dfClear,'time_ = vTimes_[0];','dfreactions.assign(1,"init");','dfNrep.assign(1,1);',compartments,'updateCompartments();','initParams(0);','updateDataFrameOutput();',sep='\n')
   reInitialize<-paste('void reInitializeDataFrame(){',reInitialize,sep='\n\t')
   reInitialize<-paste(reInitialize,'}',sep='\n')
-  
+
   rexp<-rexp_gil
   rpois<-rpois_gil
   isFromSizeEnough<-isFromSizeEnough
   runTau<-runTau
   tauLeapAlgo<-tauLeapAlgo
-  
+
   destructor<-'~reactions(){}'
-  
+
   ########## INIT PARAMS #########
   initParams<-paste('void initParams(unsigned timePart){',getParam,'updateRates();',sep="\n\t")
   initParams<-paste(initParams,"}",sep="\n")
-  
-  
+
+
   ################### PUBLIC PRIVATE ###################
   ######################################################
   doubles<-paste(doubles,"", ";")
   private<-paste("private:","vector<double> vRates_;","long seed_;","int nTrials_;",doubles,"NumericVector initialStates_;","NumericVector vTimes_;","map<string,double> compartments;","vector<vector<string> > vFrom;","vector<vector<string> > vTo;","vector<string> vreactions;",output,"vector<string> dfreactions;","vector<int> dfNrep;","std::mt19937 randomGenerator_;","vector<NumericVector> parameters_;","bool isSwitchingMode_;", "bool verbose_;",sep='\n\t')
-  
+
   public<-paste(constructor,destructor,initRandomGenerator,initStructures,initParams,reInitialize,updateRates,updateCompartments,computeTotRate,whichReac,isFromSizeEnough,performReac,rexp,rpois,gillespieSimulation,runSwitch,runDirect,directAlgo,runTau,tauLeapAlgo,continueCondition,updateOutput,updateReacOutput,RtoCfunctions,"};",sep="\n")
   public<-paste("public:",public,sep="\n\t")
-  
+
   rcppModule<-rcppModule_gillespie
   header<-header_gillespie
   ############### CODE ##############
   # codeSimulation<-paste(header,private,public,rcppModule,sep="\n")
   codeSimulation<-paste(header,private,public,sep="\n")
-  
+
 }
 
   ###########################################
   ######### BUILD COMPILE SIMULATOR #########
   ###########################################
-  
+
   #' Build a simulator of dynamics of population-model
-  #' 
+  #'
   #' A simulator is built by supplying reactions of the model described by our formalism or described by differential equations
   #' The returned function will be used to simulate trajectories, that can further be used to simulate phylogenies.
-  #' 
-  #' @param reactions A character vector of reactions describing the input model. 
+  #'
+  #' @param reactions A character vector of reactions describing the input model.
   #' @param functions A named vector where functions are defined.
-  #' 
+  #'
   #' @return An object of class \code{simulation}, which is a function that can be used to simulate trajectories from the model.
   #' @author Gonche Danesh
   #' @export
-  #' 
-  #' @examples 
+  #'
+  #' @examples
   #' # Build a simulator for an SIR model
-  #' reactions <- c('I [beta * S * I] -> I',
+  #' reactions <- c('S [beta * S * I] -> I',
   #'                'I [gamma * I] -> R')
-  #'                
+  #'
   #' sir.simu <- build_simulator(reactions = reactions)
-  #' 
-  #' # Run a simulation of a trajectory 
+  #'
+  #' # Run a simulation of a trajectory
   #' sir_traj <- sir.simu(paramValues = c(gamma = 1, beta = 2e-4),
   #'                      initialStates = c(I = 1, S = 9999, R = 0),
   #'                      times = c(0, 20))
-  #'                  
+  #'
   #' # The output is a named list containing the trajectory, the algorithm, the parameter values and the reactions of the model.
   #' names(sir_traj)
-  #' 
+  #'
   #' # Print head of the simulated trajectory
-  #' head(sir_traj$traj) 
-  #' 
+  #' head(sir_traj$traj)
+  #'
   #' # Plot the trajectory
   #' plot(sir_traj)
   build_simulator<-function(reactions, functions=NULL){
-    
+
     ### Check for redonduncy
     # tmp = as.vector(unlist(compartmentNames))
     # if(length(str_replace(tmp,"[*]","")) != length(compartmentNames)){
@@ -661,7 +664,7 @@ simulator_generator<-function(reactions, functions=NULL){
     # } else if(length(unique(paramNames)) != length(paramNames)){
     #   stop('List of parameter names has redundancy. Names must be different.')
     # }
-    
+
     src='
     // [[Rcpp::plugins(cpp11)]]
     List theta_(paramValues);
@@ -669,32 +672,33 @@ simulator_generator<-function(reactions, functions=NULL){
     NumericVector init_(initialStates);
     double dT_ = as<double>(dT);
     int nTrial_ = as<int>(nTrials);
-    
+    long seed_ = as<long>(seed);
+
     bool switching_ = LOGICAL(x)[0];
     bool verbose_ = LOGICAL(x)[1];
-    
-    reactions simu(theta_,init_,times_,dT_,nTrial_,switching_,verbose_);
-    
+
+    reactions simu(theta_,init_,times_,dT_,nTrial_,switching_,verbose_,seed_);
+
     List traj = simu.GillespieSimulation();
     return traj;
     '
     codeSimu <- simulator_generator(reactions, functions)
     message("Compiling the simulator ...")
-    
+
     # ptm <- proc.time()
-    
+
     ## For c++ compilation
     myplugin <- getPlugin("Rcpp")
     myplugin$env$PKG_CXXFLAGS <- "-std=c++11"
-    
+
     simu.cpp<-cxxfunction(
       signature(paramValues="List",times="NumericVector",initialStates="NumericVector",
-                dT="numeric",nTrials="integer",x="logical"
+                dT="numeric",nTrials="integer",x="logical",seed="integer"
       ),
       plugin="Rcpp",body=src,includes=codeSimu, settings=myplugin
     )
-    
-    simulation<-function(paramValues,initialStates,times,method="mixed",tau=0.01,nTrials=1, verbose=FALSE){
+
+    simulation<-function(paramValues,initialStates,times,method="mixed",tau=0.01,nTrials=1, verbose=FALSE, seed=0){
       ok = TRUE
       traj = list()
 
@@ -702,17 +706,17 @@ simulator_generator<-function(reactions, functions=NULL){
         ok=FALSE
         message('The algorithm given in the method argument given is not correct.\nThe different methods are "exact", "approximate" or "mixed."')
       }
-      
+
       # if( length(times) != (length(paramValues)+1) ){
       #   print("Error : number of vectors of parameter values doesn't correspond to the number of time intervals.")
       #   ok = FALSE
-      # } else 
+      # } else
       if(! .checkParamValues(paramValues,times,initialStates)){
         warning("Error : parameter or individual or times values contain NA value.")
         ok = FALSE
       } else{
         ok = TRUE
-        
+
         #### Transformer theta sous forme de liste de vecteurs
         ## Combien d'intervalles de temps
         nb<-length(paramValues[[1]])
@@ -753,54 +757,55 @@ simulator_generator<-function(reactions, functions=NULL){
         ## ajouter les seuils
       }
 
-    
-      
+
+
       results<-list()
-      
+
       if(ok){
         x=c(switchingMode, verbose)
-        traj = simu.cpp(paramValues=theta,initialStates=initialStates,times=times,dT=dT,nTrials=nTrials,x=x)
-        
+        traj = simu.cpp(paramValues=theta,initialStates=initialStates,times=times,dT=dT,nTrials=nTrials,x=x,seed=seed)
+
         if(length(traj) > 0){
 
           message("Success!")
 
           reacs <- unique(traj$Reaction)
-          
+
           results[["reactions"]] <- reactions
           results[["values"]] <- c(paramValues,initialStates)
           results[["times"]] <- times
           results[["method"]] <- algo
           results[["tau"]] <- dT
-          results[["traj"]] <- traj
-          
+          results[["seed"]] <- traj$seed
+          results[["traj"]] <- traj$traj
+
           class(results) <- "simutraj"
         } else{
           message("Failure. You should try other parameter values.")
         }
-        
+
       }
-      
+
       results
       # traj
-      
+
     }
-    
+
     message("Process complete.")
-    
+
     class(simulation) <- c('simulation', 'function')
     simulation
-    
+
   }
-  
+
   ## Plot a trajectory ; input is the resulted output from the simulation
-  
+
   #' Plot an object of class \code{simutraj}.
-  #' 
+  #'
   #' @param simuResults An object of \code{simutraj} resulting from running a simulator of trajectories built using the \code{build_simulator} function.
   #' @author Gonche Danesh
   #' @rdname plot.simutraj
-  #' @export 
+  #' @export
   plot.simutraj <- function(x, ...){
     indx_indiv <- which(names(x$traj) %notin% c("Time","Reaction","Nrep"))
     len_indx <- length(indx_indiv)
