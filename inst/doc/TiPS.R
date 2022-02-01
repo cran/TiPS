@@ -224,15 +224,3 @@ bd_tree <- simulate_tree(
 ## ----fig.height = 10----------------------------------------------------------
 ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, show.tip.label = F)
 
-## ----results = "hide"---------------------------------------------------------
-bd_tree <- simulate_tree(
-  simuResults = trajbd_tl,
-  deme = c("I1", "I2"),
-  root = "I2", # type of individual at the root of the tree
-  nTrials = 10,
-  isFullTrajectory = TRUE, # deads generate leaves
-  addInfos = TRUE) # additional info for each node
-
-## ----fig.height = 10----------------------------------------------------------
-ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, show.tip.label = F)
-

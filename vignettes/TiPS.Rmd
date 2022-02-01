@@ -431,24 +431,6 @@ bd_tree <- simulate_tree(
 ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, show.tip.label = F)
 ```
 
-### Without given sampling dates
-
-Let's simuate a phylogeny where simulated deaths in the trajectory generate leaves. This can be done with the ```isFullTrajectory``` option.
-
-```{r results = "hide"}
-bd_tree <- simulate_tree(
-  simuResults = trajbd_tl,
-  deme = c("I1", "I2"),
-  root = "I2", # type of individual at the root of the tree
-  nTrials = 10,
-  isFullTrajectory = TRUE, # deads generate leaves
-  addInfos = TRUE) # additional info for each node
-```
-
-```{r fig.height = 10}
-ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, show.tip.label = F)
-```
-
 # References
 
 * For further details see Danesh G, Saulnier E, Gascuel O, Choisy M, Alizon S. 2020. Simulating trajectories and phylogenies from population dynamics models with TiPS. *bioRxiv*, 2020.11.09.373795. DOI: [10.1101/2020.11.09.373795](http://dx.doi.org/10.1101/2020.11.09.373795).

@@ -1,4 +1,4 @@
-74b1234d1d730d9686b4ccc2e6696dbb *DESCRIPTION
+e3c6210efdf0155b01df563b08c26c5f *DESCRIPTION
 6f862837a065a499674ccfbfd9f38087 *NAMESPACE
 01005661bc12ad0a1b63fb6311e69f16 *R/PhyloEpid.R
 01005661bc12ad0a1b63fb6311e69f16 *R/TiPS.R
@@ -6,9 +6,9 @@
 4d4f8f6f11d8f49444d5259c1b106c32 *R/treeSimulator.R
 5dfe864a06e8ff4d9fb23cf2dd0dcfa6 *build/vignette.rds
 fc1f74ffa7d6f0f55e349349c57e7b17 *inst/CITATION
-e8bdaaa0bec98354b85cee29d028255c *inst/doc/TiPS.R
-8f14a741790084355de8bb137f3647a4 *inst/doc/TiPS.Rmd
-911377e09bc03740ff7f63fe5b6f444e *inst/doc/TiPS.html
+b29e1901aeeaf60c1d3c0b1c063f6679 *inst/doc/TiPS.R
+26ce48ebbc8cafcb360b6a7c90a522b2 *inst/doc/TiPS.Rmd
+3e726f90300450aaa472ddc9db18d401 *inst/doc/TiPS.html
 f47ac4fae0c7f7f9e7b5a57dfa0fb9b5 *inst/extdata/SIR-dates.txt
 e0bfd8e0cb3487e38c5c30864e7c08f0 *inst/include/Compartment.h
 9d38617b30c61a39916ffeb17b446d20 *inst/include/Node.h
@@ -23,4 +23,4 @@ a26724ff7efaec2fd8b0d1f32cd6f134 *src/Compartment.cpp
 9bccc7fbceeb825e7684779c67c2af1a *src/Phyloepid.cpp
 cfdd4da812f1b0754dec3fc55922e8fc *src/RcppExports.cpp
 029589a786670d07b521d2229e838a8f *src/Reaction.cpp
-8f14a741790084355de8bb137f3647a4 *vignettes/TiPS.Rmd
+26ce48ebbc8cafcb360b6a7c90a522b2 *vignettes/TiPS.Rmd
