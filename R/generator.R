@@ -26,8 +26,8 @@
 `%notin%` <- Negate(`%in%`)
 
 #' Generates a simulator in string
-#' @param reactions a vector of reactions
-#' @param functions a list of functions
+#' @param reactions a character vector of reactions
+#' @param functions a character vector of functions
 #' @NoRd
 simulator_generator<-function(reactions, functions=NULL){
 
@@ -36,204 +36,238 @@ simulator_generator<-function(reactions, functions=NULL){
 
     ############### CONSTRUCTEUR ###########
   constructor_gillespie<-'
-  reactions(List params, NumericVector initialStates, NumericVector times, double deltaT, int nTrials, bool isSwitchingMode, bool verbose, long seed) : nTrials_(nTrials), deltaT_(deltaT), isSwitchingMode_(isSwitchingMode), seed_(seed){
+  reactions(List params, NumericVector initialStates, NumericVector times, double deltaT, int nTrials, bool isSwitchingMode, bool verbose, long seed, double msaTau, double msaIt, string outFile) : nTrials_(nTrials), deltaT_(deltaT), isSwitchingMode_(isSwitchingMode), seed_(seed), msaTau_(msaTau), msaIt_(msaIt), outFile_(outFile){
     verbose_ = verbose;
-  for (unsigned i = 0; i < params.size(); i++){
-  parameters_.push_back(params[i]);
-  }
-  initialStates_ = initialStates;
-  vTimes_ = times;
-  initStructures();
-  if(seed_ == 0){
-    initRandomSeed();
-  }
-  randomGenerator_.seed(seed_);
-  time_ = vTimes_[0];
+    for (unsigned i = 0; i < params.size(); i++){
+      parameters_.push_back(params[i]);
+    }
+    initialStates_ = initialStates;
+    vTimes_ = times;
+    initStructures();
+    if(seed_ == 0){
+      initRandomSeed();
+    }
+    randomGenerator_.seed(seed_);
+    time_ = vTimes_[0];
+    isOutFile_ = !outFile_.empty();
   }
   '
 
   ############ RUN SWITCHING MODE ##############
   runSwitch<-'
   bool runWithWitchingMode(){
-  unsigned timePart = 0;
-  time_ = vTimes_[timePart];
-  int timePartLim = (vTimes_.size()-1);
-  initParams(timePart);
-  double jump = 1;
-  double totalRate = 1;
-  unsigned switchingThreshold = 0;
-  int nEvents = 0;
-  for ( ; timePart<timePartLim && computeTotalRate()!=0 && nEvents>=0 ; timePart++) {
-  initParams(timePart);
-  totalRate = computeTotalRate();
-  jump = rexp(totalRate);
-  while(continueCondition(timePart) && nEvents>=0 ){
-  if(jump < deltaT_/10.0){
-  switchingThreshold ++;
-  }
-  else{
-  switchingThreshold = 0;
-  }
-  if(switchingThreshold > 10 || ((double)nEvents/(double)vreactions.size()) > 1){
-  nEvents = tauLeapAlgo();
-  jump = deltaT_;
-  switchingThreshold = 0;
-  }
-  else{
-  jump = directAlgo();
-  nEvents =1;
-  }
-  }
-  }
-  return (time_>vTimes_[vTimes_.size()-1] || (abs(vTimes_[vTimes_.size()-1] - time_)<(deltaT_/10)));
+    unsigned timePart = 0;
+    time_ = vTimes_[timePart];
+    int timePartLim = (vTimes_.size()-1);
+    initParams(timePart);
+    double jump = 1;
+    double totalRate = 1;
+    unsigned switchingThreshold = 0;
+    int nEvents = 0;
+    ofstream outTrajectory;
+    if(!isOutFile_) {
+      updateDataFrameOutput();
+    }
+    else {
+      outTrajectory.open(outFile_);
+      outTrajectory << trajectoryHeaderToString() << endl;
+      outTrajectory << "" << setprecision(10) << time_ << "\\t" ;
+      outTrajectory << compartmentStatesToString() << "\\t" ;
+      outTrajectory << "\\tinit\\t1" << endl;;
+    }
+    for ( ; timePart<timePartLim && computeTotalRate()!=0 && nEvents>=0 ; timePart++) {
+      initParams(timePart);
+      totalRate = computeTotalRate();
+      jump = rexp(totalRate);
+      while(continueCondition(timePart) && nEvents>=0 ){
+        if(jump < msaTau_){
+          switchingThreshold ++;
+        }
+        else{
+          switchingThreshold = 0;
+        }
+        if(switchingThreshold > msaIt_ || ((double)nEvents/(double)vreactions.size()) > 1){
+          nEvents = tauLeapAlgo(outTrajectory);
+          jump = deltaT_;
+          switchingThreshold = 0;
+        }
+        else{
+          jump = directAlgo(outTrajectory);
+          nEvents =1;
+        }
+      }
+    }
+    if (isOutFile_) {
+      outTrajectory.close();
+    }
+    return (time_>vTimes_[vTimes_.size()-1] || (abs(vTimes_[vTimes_.size()-1] - time_)<(deltaT_/10)));
   }
   '
 
   ######### RUN DIRECT ##########
   runDirect_gillespie<-'
   bool runDirect(){
-  unsigned timePart = 0;
-  time_ = vTimes_[timePart];
-  int timePartLim = (vTimes_.size()-1);
-  initParams(timePart);
-  for ( ; timePart<timePartLim && computeTotalRate()!=0 ; timePart++) {
-  initParams(timePart);
-  while(continueCondition(timePart)){
-  double totalRate = 0.0;
-  double jump = 0.0;
-  int reactIndx = 0;
-  totalRate = computeTotalRate();
-  jump = rexp(totalRate);
-  time_ += jump;
-  reactIndx = whichReaction(totalRate);
-  performReaction(reactIndx,1);
-  updateCompartments();
-  updateDataFrameOutput();
-  updatereactionsOutput(reactIndx,1);
-  updateRates();
-  }
-  }
-  return (time_>vTimes_[vTimes_.size()-1] || (abs(vTimes_[vTimes_.size()-1] - time_)<(deltaT_/10)));
-  }
-  '
-
-  ############# DIRECT ALGORITHM ###########
-  directAlgo_gilespie<-'
-  double directAlgo(){
-  double totalRate = 0.0;
-  double jump = 0.0;
-  int reactIndx = 0;
-  totalRate = computeTotalRate();
-  jump = rexp(totalRate);
-  time_ += jump;
-  reactIndx = whichReaction(totalRate);
-  performReaction(reactIndx,1);
-  updateCompartments();
-  updateDataFrameOutput();
-  updatereactionsOutput(reactIndx,1);
-  updateRates();
-  return jump;
-  }
-  '
-
-  ############ GILLESPIE SIMULATION ###########
-  gillespieSimulation_gil<-'
-  List GillespieSimulation(){
-  if(verbose_){
-    Rcout << "Running simulation of the trajectory..." << endl;
-  }
-  bool ok = false;
-  auto start_ = std::chrono::high_resolution_clock::now();
-  auto stop_ = std::chrono::high_resolution_clock::now();
-  if (deltaT_ > 0){
-  if(isSwitchingMode_){
-  unsigned i = 0;
-  if (nTrials_ > 1){
-    if(verbose_){
-      Rcout << "- Trial " << (i+1) << "..." << endl;
-    }
-  }
-  start_ = std::chrono::high_resolution_clock::now();
-  updateDataFrameOutput();
-  ok = runWithWitchingMode();
-  stop_ = std::chrono::high_resolution_clock::now();
-  for (i = 1; i < nTrials_ && !ok; i++){
-  reInitializeDataFrame();
-  if(verbose_){
-    Rcout << "- Trial " << (i+1) << "..." << endl;
-  }
-  start_ = std::chrono::high_resolution_clock::now();
-  ok = runWithWitchingMode();
-  stop_ = std::chrono::high_resolution_clock::now();
-  }
-  }
-  else{
-  unsigned i = 0;
-  if (nTrials_ > 1){
-    if(verbose_){
-      Rcout << "- Trial " << (i+1) << "..." << endl;
-    }
-  }
-  start_ = std::chrono::high_resolution_clock::now();
-  updateDataFrameOutput();
-  ok = runTau();
-  stop_ = std::chrono::high_resolution_clock::now();
-  for (i = 1; i < nTrials_ && !ok; i++){
-  reInitializeDataFrame();
-  if(verbose_){
-    Rcout << "- Trial " << (i+1) << "..." << endl;
-  }
-  start_ = std::chrono::high_resolution_clock::now();
-  ok = runTau();
-  stop_ = std::chrono::high_resolution_clock::now();
-  }
-  }
-  }
-  else{
-  unsigned i = 0;
-  if (nTrials_ > 1){
-    if(verbose_){
-      Rcout << "- Trial " << (i+1) << "..." << endl;
-    }
-  }
-  start_ = std::chrono::high_resolution_clock::now();
-  updateDataFrameOutput();
-  ok = runDirect();
-  stop_ = std::chrono::high_resolution_clock::now();
-  for (i = 1; i < nTrials_ && !ok; i++){
-  reInitializeDataFrame();
-    if(verbose_){
-      Rcout << "- Trial " << (i+1) << "..." << endl;
-    }
-  start_ = std::chrono::high_resolution_clock::now();
-  ok = runDirect();
-  stop_ = std::chrono::high_resolution_clock::now();
-  }
-  }
-  if (ok){
-  '
-
-  ############# RUN TAU #############
-  runTau<-'
-  bool runTau(){
     unsigned timePart = 0;
+    double jump = 1;
     time_ = vTimes_[timePart];
     int timePartLim = (vTimes_.size()-1);
     initParams(timePart);
-    int nEvents = 0;
-    for ( ; timePart<timePartLim && computeTotalRate()!=0 && nEvents>=0 ; timePart++) {
+    ofstream outTrajectory;
+    if(!isOutFile_) {
+      updateDataFrameOutput();
+    }
+    else {
+      outTrajectory.open(outFile_);
+      outTrajectory << trajectoryHeaderToString() << endl;
+      outTrajectory << "" << setprecision(10) << time_ << "\\t" ;
+      outTrajectory << compartmentStatesToString() << "\\t" ;
+      outTrajectory << "\\tinit\\t1" << endl;;
+    }
+    for ( ; timePart<timePartLim && computeTotalRate()!=0 ; timePart++) {
       initParams(timePart);
-      while(continueCondition(timePart) && nEvents>=0 ){
-        nEvents = tauLeapAlgo();
+      while(continueCondition(timePart)){
+        jump = directAlgo(outTrajectory);
       }
+    }
+    if (isOutFile_) {
+      outTrajectory.close();
     }
     return (time_>vTimes_[vTimes_.size()-1] || (abs(vTimes_[vTimes_.size()-1] - time_)<(deltaT_/10)));
   }
   '
 
+  ############# DIRECT ALGORITHM ###########
+  directAlgo_gilespie<-'
+  double directAlgo(ofstream& outTrajectory){
+    double totalRate = 0.0;
+    double jump = 0.0;
+    int reactIndx = 0;
+    totalRate = computeTotalRate();
+    jump = rexp(totalRate);
+    time_ += jump;
+    reactIndx = whichReaction(totalRate);
+    performReaction(reactIndx,1);
+    updateCompartments();
+    outTrajectory << "" << setprecision(10) << time_ << "\\t" ;
+    updateOutput(reactIndx, 1, outTrajectory);
+    updateRates();
+    return jump;
+  }
+
+  '
+
+  ############ GILLESPIE SIMULATION ###########
+  gillespieSimulation_gil<-'
+  List GillespieSimulation(){
+    if(verbose_){
+      Rcout << "Running simulation of the trajectory..." << endl;
+    }
+    bool ok = false;
+    auto start_ = std::chrono::high_resolution_clock::now();
+    auto stop_ = std::chrono::high_resolution_clock::now();
+    if (deltaT_ > 0){
+      if(isSwitchingMode_){
+        unsigned i = 0;
+        if (nTrials_ > 1){
+          if(verbose_){
+            Rcout << "- Trial " << (i+1) << "..." << endl;
+          }
+        }
+        start_ = std::chrono::high_resolution_clock::now();
+        ok = runWithWitchingMode();
+        stop_ = std::chrono::high_resolution_clock::now();
+        for (i = 1; i < nTrials_ && !ok; i++){
+          reInitializeDataFrame();
+          if(verbose_){
+            Rcout << "- Trial " << (i+1) << "..." << endl;
+          }
+          start_ = std::chrono::high_resolution_clock::now();
+          ok = runWithWitchingMode();
+          stop_ = std::chrono::high_resolution_clock::now();
+        }
+      }
+      else{
+        unsigned i = 0;
+        if (nTrials_ > 1){
+          if(verbose_){
+            Rcout << "- Trial " << (i+1) << "..." << endl;
+          }
+        }
+        start_ = std::chrono::high_resolution_clock::now();
+        ok = runTau();
+        stop_ = std::chrono::high_resolution_clock::now();
+        for (i = 1; i < nTrials_ && !ok; i++){
+          reInitializeDataFrame();
+          if(verbose_){
+            Rcout << "- Trial " << (i+1) << "..." << endl;
+          }
+          start_ = std::chrono::high_resolution_clock::now();
+          ok = runTau();
+          stop_ = std::chrono::high_resolution_clock::now();
+        }
+      }
+    }
+    else{
+      unsigned i = 0;
+      if (nTrials_ > 1){
+        if(verbose_){
+          Rcout << "- Trial " << (i+1) << "..." << endl;
+        }
+      }
+      start_ = std::chrono::high_resolution_clock::now();
+      ok = runDirect();
+      stop_ = std::chrono::high_resolution_clock::now();
+      for (i = 1; i < nTrials_ && !ok; i++){
+        reInitializeDataFrame();
+          if(verbose_){
+            Rcout << "- Trial " << (i+1) << "..." << endl;
+          }
+        start_ = std::chrono::high_resolution_clock::now();
+        ok = runDirect();
+        stop_ = std::chrono::high_resolution_clock::now();
+      }
+    }
+    if (ok){
+      List res;
+      res["seed"] = seed_;
+  '
+
+  ############# RUN TAU #############
+  runTau<-'
+  bool runTau(){
+  unsigned timePart = 0;
+  time_ = vTimes_[timePart];
+  int timePartLim = (vTimes_.size()-1);
+  initParams(timePart);
+  int nEvents = 0;
+  ofstream outTrajectory;
+  if(!isOutFile_) {
+    updateDataFrameOutput();
+  }
+  else {
+    outTrajectory.open(outFile_);
+    outTrajectory << trajectoryHeaderToString() << endl;
+    outTrajectory << "" << setprecision(10) << time_ << "\\t" ;
+    outTrajectory << compartmentStatesToString() << "\\t" ;
+    outTrajectory << "\\tinit\\t1" << endl;;
+  }
+  for ( ; timePart<timePartLim && computeTotalRate()!=0 && nEvents>=0 ; timePart++) {
+    initParams(timePart);
+    while(continueCondition(timePart) && nEvents>=0 ){
+      nEvents = tauLeapAlgo(outTrajectory);
+    }
+  }
+  if (isOutFile_) {
+    outTrajectory.close();
+  }
+  return (time_>vTimes_[vTimes_.size()-1] || (abs(vTimes_[vTimes_.size()-1] - time_)<(deltaT_/10)));
+}
+
+  '
+
   ############ TAU LEAP ALGO #########
   tauLeapAlgo<-'
-  int tauLeapAlgo(){
+  int tauLeapAlgo(ofstream& outTrajectory){
   unsigned nEvents = 0;
     vector<pair<int,int> > reactionsToPerform;
     int indx = 0 ;
@@ -270,13 +304,18 @@ simulator_generator<-function(reactions, functions=NULL){
     if(ok){
       time_ += deltaT_ ;
       for(unsigned i = 0; i<reactionsToPerform.size() ; i++){
+        outTrajectory << "" << setprecision(10) << time_ << "\\t" ;
         int reac = reactionsToPerform[i].first;
         int nbTime = reactionsToPerform[i].second;
         performReaction(reac, nbTime);
         updateCompartments();
-        updateDataFrameOutput();
-        updatereactionsOutput(reac,nbTime);
+        updateOutput(reac, nbTime, outTrajectory);
         updateRates();
+        if (!checkCompartmentSize()) {
+          i = reactionsToPerform.size(); // to end the loop
+          warning("Error : Population size negative. You should try a smaller value for the time step tau.");
+          nEvents = -1;
+        }
       }
     }
     else{
@@ -290,7 +329,7 @@ simulator_generator<-function(reactions, functions=NULL){
   rcppModule_gillespie<-'
   RCPP_MODULE(reactionsmodule){
   Rcpp::class_<reactions>( "reactions" )
-  .constructor<List, NumericVector, NumericVector, double, long, int, bool>("documentation for constructor")
+  .constructor<List, NumericVector, NumericVector, double, long, int, bool, int, int, string>("documentation for constructor")
   .method( "GillespieSimulation" , &reactions::GillespieSimulation, "final simulation")
   ;
   }
@@ -308,21 +347,15 @@ simulator_generator<-function(reactions, functions=NULL){
   #include <chrono>
   #include <sys/time.h>
   #include <random>
+  #include <iostream>
+  #include <fstream>
+  #include <stdio.h>
+
 
   using namespace Rcpp;
   using namespace std;
 
   class reactions {
-  '
-
-  ########## RANDOM GENERATOR ############
-  randGenerator<-'
-  void initRandomSeed(){
-  struct timeval start;
-  gettimeofday(&start,NULL);
-  seed_ = start.tv_usec;
-  randomGenerator_.seed(seed_);
-  }
   '
 
   ############ INIT RANDOM GENERATOR ##############
@@ -347,7 +380,7 @@ simulator_generator<-function(reactions, functions=NULL){
   '
 
   ############## WHICH REACTION ##############
-  whichReac<-"
+  whichReac<-'
   int whichReaction(const double& totalRate){
     std::uniform_real_distribution<double> uniform(0.0, 1.0);
     double r = uniform(randomGenerator_);
@@ -360,7 +393,7 @@ simulator_generator<-function(reactions, functions=NULL){
     indx--;
     return indx;
   }
-  "
+  '
 
   ############### PERFORM REACTION ###############
   performReac<-'
@@ -422,6 +455,15 @@ simulator_generator<-function(reactions, functions=NULL){
   }
   '
 
+  ############## CHECK POPULATION SIZE ##############
+  checkCompartmentSize <- '
+  bool checkCompartmentSize(){
+    // returns a boolean : True if no negative population size, False otherwise
+    double value = 0;
+    auto result = find_if(compartments.begin(), compartments.end(), [&value](pair<const string, double> &mo) {return mo.second < 0; });
+    return (result == std::end(compartments));
+  }
+  '
   ################## IS FROM SIZE ENOUGH ##########
   isFromSizeEnough<-'
   bool isFromSizeEnough(int reac, int nbReac){
@@ -439,6 +481,73 @@ simulator_generator<-function(reactions, functions=NULL){
   }
   '
 
+  ##### UPDATE DATA OUTPUT #####
+  updateDataOutputAll <- '
+  string trajectoryHeaderToString(){
+    	stringstream ss;
+      map<string,double>::iterator it;
+    	ss << "Time";
+    	for (it = compartments.begin(); it != compartments.end() ; ++it){
+    			ss << "\\t";
+    			ss << it->first;
+    	}
+    	ss << "\\tReaction\\tNrep";
+    	return ss.str();
+  }
+
+  string compartmentStatesToString(){
+  	stringstream ss;
+  	map<string,double>::iterator it = compartments.begin();
+  	ss << it->second;
+  	++it;
+  	for (; it != compartments.end() ; ++it){
+  		ss << "\t" << it->second;
+  	}
+  	return ss.str();
+  }
+
+  string whichReactionsToString(int indxReac, int nTime){
+    stringstream ss;
+    ss << vreactions[indxReac];
+    ss << "\t";
+    ss << nTime;
+    return ss.str();
+  }
+
+  void updateOutput(int indxReac, int nTime, ofstream& outTrajectory) {
+    if (!isOutFile_) {
+      updateDataFrameOutput();
+      updatereactionsOutput(indxReac, nTime);
+    }
+    else{
+      outTrajectory << compartmentStatesToString() << "\t";
+      outTrajectory << whichReactionsToString(indxReac, nTime) << endl;
+    }
+  }
+
+  '
+
+  ########### ADD FUNCTIONS TO COMPUTE VALUES ##########
+  RtoCfunctions = ""
+  updateParam=""
+  function_params=""
+  if(!is.null(functions)){
+    n=length(functions)
+    function_params = sapply(strsplit(functions,"="),"[[",1)
+    for (i in 1:n) {
+      if(grepl('[=]',functions[i])){
+        name=strsplit(x=functions[i],split='=')[[1]][1]
+        fonction=strsplit(x=functions[i],split='=')[[1]][2]
+      } else if(grepl('[<-]',functions[i])){
+        name=strsplit(x=functions[i],split='<-')[[1]][1]
+        fonction=strsplit(x=functions[i],split='<-')[[1]][2]
+      }
+      RtoCfunctions=paste(RtoCfunctions,"double get",name,"(){\n\treturn (",fonction,") ;\n}\n",sep="")
+
+      updateParam=paste(updateParam,"\t",name," = get",name,"() ; \n",sep="")
+    }
+  }
+
   ############ reactions #############
   lnR<-length(reactions)
   lignes<-reactions
@@ -448,11 +557,34 @@ simulator_generator<-function(reactions, functions=NULL){
   updateRates<-""
   for(i in 1:lnR){
     rates[i]<-gsub(".*\\[(.*)\\].*", "\\1", lignes[i])
+    rate <- rates[i] # copy since the rates vector is modified
+    if(grepl(pattern = "\\^",x = rates[i])){ ## in case of square -> convert to Rcpp pow(m,n) function
+      extracted <- stringr::str_extract_all(rates[i], "[^\\^]+")[[1]]
+      pos <- stringr::str_locate_all(rates[i],"\\^")[[1]]
+      npos <- nrow(pos)
+      for(j in 1:npos){
+        tmp <- extracted[j] # what's before the jth '^'
+        tmp <- unlist(str_extract_all(tmp, stringr::boundary("word"))) # get only the words before the '^'
+        tosquare <- tmp[length(tmp)] # get the last word, the one preceeding the '^'
+        if(j == npos){
+          tmp <- stringr::str_sub(rate, start = (pos[j,1]+1)) # what's after the last '^'
+          tmp <- regmatches(tmp,gregexpr("(?>-)*[[:digit:]]+\\.*[[:digit:]]*",tmp, perl=TRUE)) # get only numerical values from that
+          byN <-  as.numeric(unlist(tmp[1]))[1] # get the first one (in case there are other numbers after)
+        } else{
+          tmp <- stringr::str_sub(string = rate, start = (pos[j,1]+1), end=(pos[(j+1),1]-1)) # what's after the jth '^'
+          tmp <- regmatches(tmp,gregexpr("(?>-)*[[:digit:]]+\\.*[[:digit:]]*",tmp, perl=TRUE)) # get only numerical values from that
+          byN <-  as.numeric(unlist(tmp[1]))[1] # get the first one (in case there are other numbers after)
+        }
+        old <- paste0(tosquare,"\\^",byN)
+        new <- paste0("pow(",tosquare,",",byN,")")
+        tmp <- gsub(pattern = old, x = rates[i], replacement = new)
+        rates[i] <- tmp
+      }
+    }
     vReac<-paste(vReac,paste("vreactions[",i-1,']="',lignes[i],'";',sep=""),sep="\n\t")
     #### UPDATE RATES FUNCTION ####
     updateRates<-paste(updateRates,paste("vRates_[",i-1,"]=",rates[i],";",sep=""),sep="\n\t")
   }
-
   ## Definir les individus et les parametres
   indivNames<-c()
   for (i in 1:lnR) {
@@ -466,7 +598,7 @@ simulator_generator<-function(reactions, functions=NULL){
   indivNames=indivNames[!grepl("^[[:digit:]]+$",indivNames)]
   indivNames=unique(indivNames)
 
-  all=unique(unlist(stringr::str_extract_all(unlist(rates),stringr::boundary("word"))))
+  all=unique(unlist(stringr::str_extract_all(unlist(reactions),stringr::boundary("word"))))
   paramsNames=all[which(all %notin% indivNames)]
   paramNames=paramsNames[!grepl("^[[:digit:]]+$",paramsNames)]
   lnP<-length(paramNames)
@@ -480,8 +612,9 @@ simulator_generator<-function(reactions, functions=NULL){
   for(i in 1:lnP){
     doubles<-paste(doubles,paramNames[i],sep=' , ')
     ##### GET PARAM FOR PUBLIC CONSTRUCTOR #####
-    getParam<-paste(getParam,paste(paramNames[i],' = parameters_[timePart]["',paramNames[i],'"];',sep=""),sep="\n\t")
-    ############################################
+    if(paramNames[i] %notin% function_params){
+      getParam<-paste(getParam,paste(paramNames[i],' = parameters_[timePart]["',paramNames[i],'"];',sep=""),sep="\n\t")
+    }
   }
   updateCompartments<-""
   updateOutput<-""
@@ -523,29 +656,8 @@ simulator_generator<-function(reactions, functions=NULL){
   }
 
 
-  randGenerator<-randGenerator
   constructor<-constructor_gillespie
   initRandomGenerator<-initRandomGenerator
-
-  ########### ADD FUNCTIONS TO COMPUTE VALUES ##########
-  RtoCfunctions = ""
-  updateParam=""
-  if(!is.null(functions)){
-    n=length(functions)
-
-    for (i in 1:n) {
-      if(grepl('[=]',functions[i])){
-        name=strsplit(x=functions[i],split='=')[[1]][1]
-        fonction=strsplit(x=functions[i],split='=')[[1]][2]
-      } else if(grepl('[<-]',functions[i])){
-        name=strsplit(x=functions[i],split='<-')[[1]][1]
-        fonction=strsplit(x=functions[i],split='<-')[[1]][2]
-      }
-      RtoCfunctions=paste(RtoCfunctions,"double get",name,"(){\n\treturn (",fonction,") ;\n}\n",sep="")
-
-      updateParam=paste(updateParam,"\t",name," = get",name,"() ; \n",sep="")
-    }
-  }
 
   ############# INIT STRUCTURES ###########
   initStructures<-paste('void initStructures(){',compartments,"vector<string> indiv(0);",paste("vRates_.assign(",lnR,",0);",sep=""),paste("vFrom.assign(",lnR,",indiv);",sep=""),paste("vTo.assign(",lnR,",indiv);",sep=""),From,To,vReac,"updateCompartments();",'dfreactions.assign(1,"init");','dfNrep.assign(1,1);',sep="\n\t")
@@ -570,14 +682,15 @@ simulator_generator<-function(reactions, functions=NULL){
   directAlgo<-directAlgo_gilespie
   gillespieSimulation<-gillespieSimulation_gil
 
-  listL<-paste("int numCol=",lnI+3,";",sep="")
-  listL<-paste(listL,"Rcpp::List long_list(numCol);","Rcpp::CharacterVector namevec(numCol);",sep="\n\t")
-  listL<-paste(listL,longList,nameVec,'long_list.attr("names") = namevec;','long_list.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, dfTimes.size());','long_list.attr("class") = "data.frame";','List res;','res["traj"] = long_list;','res["seed"] = seed_;','auto elapsed = stop_ - start_;','     if(verbose_){Rcout << "Operation took: " << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " microseconds." << endl;}','return res;',sep="\n\t")
+  listL<-paste("if(!isOutFile_){\n\t","int numCol=",lnI+3,";",sep="")
+  listL<-paste(listL,"Rcpp::List long_list(numCol);","Rcpp::CharacterVector namevec(numCol);",sep="\n\t\t")
+  listL<-paste(listL,longList,nameVec,'long_list.attr("names") = namevec;','long_list.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, dfTimes.size());','long_list.attr("class") = "data.frame";','res["traj"] = long_list;',sep="\n\t\t")
+  listL<-paste(listL,'}','auto elapsed = stop_ - start_;','if(verbose_){Rcout << "Operation took: " << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " microseconds." << endl;}','return res;',sep='\n\t')
 
   gillespieSimulation<-paste(gillespieSimulation,listL,'}',sep="\n\t")
   # gillespieSimulation<-paste(gillespieSimulation,paste('else{','Rcpp::stop("Failure. You should try other parameter values.");','}',sep="\n"),'}',sep='\n')
 
-  gillespieSimulation<-paste(gillespieSimulation,paste('else{','return NULL;','}',sep="\n"),'}',sep='\n')
+  gillespieSimulation<-paste(gillespieSimulation,paste('else{','remove((outFile_.c_str()));','return NULL;','}',sep="\n"),'}',sep='\n')
 
   ################### UPDATE DATAFRAME OUTPUT ####################
   updateOutput<-paste("void updateDataFrameOutput(){","dfTimes.push_back(time_);",updateOutput,sep="\n\t")
@@ -593,8 +706,10 @@ simulator_generator<-function(reactions, functions=NULL){
   rexp<-rexp_gil
   rpois<-rpois_gil
   isFromSizeEnough<-isFromSizeEnough
+  checkCompartmentSize <- checkCompartmentSize
   runTau<-runTau
   tauLeapAlgo<-tauLeapAlgo
+  updateDataOutputAll <- updateDataOutputAll
 
   destructor<-'~reactions(){}'
 
@@ -606,9 +721,9 @@ simulator_generator<-function(reactions, functions=NULL){
   ################### PUBLIC PRIVATE ###################
   ######################################################
   doubles<-paste(doubles,"", ";")
-  private<-paste("private:","vector<double> vRates_;","long seed_;","int nTrials_;",doubles,"NumericVector initialStates_;","NumericVector vTimes_;","map<string,double> compartments;","vector<vector<string> > vFrom;","vector<vector<string> > vTo;","vector<string> vreactions;",output,"vector<string> dfreactions;","vector<int> dfNrep;","std::mt19937 randomGenerator_;","vector<NumericVector> parameters_;","bool isSwitchingMode_;", "bool verbose_;",sep='\n\t')
+  private<-paste("private:","vector<double> vRates_;","long seed_;","int nTrials_;",doubles,"NumericVector initialStates_;","NumericVector vTimes_;","map<string,double> compartments;","vector<vector<string> > vFrom;","vector<vector<string> > vTo;","vector<string> vreactions;",output,"vector<string> dfreactions;","vector<int> dfNrep;","std::mt19937 randomGenerator_;","vector<NumericVector> parameters_;","bool isSwitchingMode_;", "bool verbose_;", "double msaTau_;", "int msaIt_;","string outFile_;","bool isOutFile_;",sep='\n\t')
 
-  public<-paste(constructor,destructor,initRandomGenerator,initStructures,initParams,reInitialize,updateRates,updateCompartments,computeTotRate,whichReac,isFromSizeEnough,performReac,rexp,rpois,gillespieSimulation,runSwitch,runDirect,directAlgo,runTau,tauLeapAlgo,continueCondition,updateOutput,updateReacOutput,RtoCfunctions,"};",sep="\n")
+  public<-paste(constructor,destructor,initRandomGenerator,initStructures,initParams,reInitialize,updateRates,updateCompartments,computeTotRate,whichReac,isFromSizeEnough,checkCompartmentSize,performReac,rexp,rpois,gillespieSimulation,runSwitch,runDirect,directAlgo,runTau,tauLeapAlgo,continueCondition,updateOutput,updateReacOutput,updateDataOutputAll,RtoCfunctions,"};",sep="\n")
   public<-paste("public:",public,sep="\n\t")
 
   rcppModule<-rcppModule_gillespie
@@ -636,6 +751,7 @@ simulator_generator<-function(reactions, functions=NULL){
   #' @export
   #'
   #' @examples
+  #' \dontrun{
   #' # Build a simulator for an SIR model
   #' reactions <- c('S [beta * S * I] -> I',
   #'                'I [gamma * I] -> R')
@@ -645,9 +761,12 @@ simulator_generator<-function(reactions, functions=NULL){
   #' # Run a simulation of a trajectory
   #' sir_traj <- sir.simu(paramValues = c(gamma = 1, beta = 2e-4),
   #'                      initialStates = c(I = 1, S = 9999, R = 0),
-  #'                      times = c(0, 20))
+  #'                      times = c(0, 20), ,
+  #'                      method = "exact",
+  #'                      seed = 166)
   #'
-  #' # The output is a named list containing the trajectory, the algorithm, the parameter values and the reactions of the model.
+  #' # The output is a named list containing the trajectory, the algorithm used,
+  #' # the parameter values and the reactions of the model.
   #' names(sir_traj)
   #'
   #' # Print head of the simulated trajectory
@@ -655,6 +774,7 @@ simulator_generator<-function(reactions, functions=NULL){
   #'
   #' # Plot the trajectory
   #' plot(sir_traj)
+  #' }
   build_simulator<-function(reactions, functions=NULL){
 
     ### Check for redonduncy
@@ -677,8 +797,12 @@ simulator_generator<-function(reactions, functions=NULL){
     bool switching_ = LOGICAL(x)[0];
     bool verbose_ = LOGICAL(x)[1];
 
-    reactions simu(theta_,init_,times_,dT_,nTrial_,switching_,verbose_,seed_);
+    double msaTau_ = as<double>(msaTau);
+    int msaIt_ = as<int>(msaIt);
 
+    string outFile_ = as<string>(outFile);
+
+    reactions simu(theta_,init_,times_,dT_,nTrial_,switching_,verbose_,seed_, msaTau_, msaIt_, outFile_);
     List traj = simu.GillespieSimulation();
     return traj;
     '
@@ -693,12 +817,13 @@ simulator_generator<-function(reactions, functions=NULL){
 
     simu.cpp<-cxxfunction(
       signature(paramValues="List",times="NumericVector",initialStates="NumericVector",
-                dT="numeric",nTrials="integer",x="logical",seed="integer"
+                dT="numeric",nTrials="integer",x="logical",seed="integer", msaTau="numeric", msaIt="numeric", outFile="character"
       ),
       plugin="Rcpp",body=src,includes=codeSimu, settings=myplugin
     )
 
-    simulation<-function(paramValues,initialStates,times,method="mixed",tau=0.01,nTrials=1, verbose=FALSE, seed=0){
+    lnR = length(reactions)
+    simulation<-function(paramValues,initialStates,times,method="approximate",tau=0.01,nTrials=1, verbose=FALSE, seed=0, msaTau=tau/10, msaIt=10, outFile=""){
       ok = TRUE
       traj = list()
 
@@ -757,14 +882,11 @@ simulator_generator<-function(reactions, functions=NULL){
         ## ajouter les seuils
       }
 
-
-
       results<-list()
 
       if(ok){
         x=c(switchingMode, verbose)
-        traj = simu.cpp(paramValues=theta,initialStates=initialStates,times=times,dT=dT,nTrials=nTrials,x=x,seed=seed)
-
+        traj = simu.cpp(paramValues=theta,initialStates=initialStates,times=times,dT=dT,nTrials=nTrials,x=x,seed=seed,msaTau=msaTau,msaIt=msaIt,outFile=outFile)
         if(length(traj) > 0){
 
           message("Success!")
@@ -777,10 +899,13 @@ simulator_generator<-function(reactions, functions=NULL){
           results[["method"]] <- algo
           results[["tau"]] <- dT
           results[["seed"]] <- traj$seed
-          results[["traj"]] <- traj$traj
-
+          if(outFile == ""){
+            results[["traj"]] <- traj$traj
+          }else{
+            results[["outFile"]] <- outFile
+          }
           class(results) <- "simutraj"
-        } else{
+        }else{
           message("Failure. You should try other parameter values.")
         }
 
@@ -802,7 +927,8 @@ simulator_generator<-function(reactions, functions=NULL){
 
   #' Plot an object of class \code{simutraj}.
   #'
-  #' @param simuResults An object of \code{simutraj} resulting from running a simulator of trajectories built using the \code{build_simulator} function.
+  #' @param x An object of \code{simutraj} resulting from running a simulator of trajectories built using the \code{build_simulator} function.
+  #' @param ... Arguments to be passed to methods, such as graphical parameters
   #' @author Gonche Danesh
   #' @rdname plot.simutraj
   #' @export

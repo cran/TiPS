@@ -23,18 +23,18 @@ class Phyloepid {
 		List traj_;
 		Rcpp::String outTree_;
 		std::mt19937 randomGenerator_;
-		long seed_;
 		int nTrials_;
 		std::vector<std::string> compartmentNames_;
-		
+
 		std::vector<std::string> strReactions_;
 		bool reSampling_; // option permettant transmission malgré avoir été échantillonné
 		unsigned nbdates_;
 		bool verbose_;
+		long seed_;
 
 	public:
 		// Phyloepid(Settings* sets);
-		Phyloepid(List reactions, List traj, bool fulTree, int nTrials, bool isresampling, unsigned nbdates, bool verbose);
+		Phyloepid(List reactions, List traj, bool fulTree, bool isresampling, unsigned int nbdates, bool verbose, NumericVector options);
 		bool simulationTree();
 		std::string getNexusTree(const bool& withInfos);
 		std::string getNewickTree(const bool& withInfos);
@@ -49,8 +49,8 @@ class Phyloepid {
 		// void setCompartments(const std::map<std::string,Compartment*>& compartments) {compartments_=compartments;}
 		// void setReactions(const std::map<std::string,Reaction*>& reactions) {reactions_=reactions;}
 		// void setRoots(const std::vector<Node*>& roots) {roots_=roots;}
-		
-		bool getIsReSampling(){return reSampling_;} 
+
+		bool getIsReSampling(){return reSampling_;}
 
 		void initCompartments();
 		void readInitialStates(List initials);

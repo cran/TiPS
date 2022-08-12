@@ -61,7 +61,8 @@ safe_sir_simu <- function(...) safe_run(sir_simu, ...)
 traj_dm <- safe_sir_simu(
   paramValues = theta,
   initialStates = initialStates,
-  times = time)
+  times = time,
+  method = "exact")
 
 ## -----------------------------------------------------------------------------
 names(traj_dm)
@@ -77,6 +78,7 @@ traj_dm <- sir_simu(
   paramValues = theta,
   initialStates = initialStates,
   times = time,
+  method = "exact",
   seed = 166)
 
 ## -----------------------------------------------------------------------------
@@ -109,6 +111,28 @@ names(traj_mm)
 head(traj_mm$traj)
 plot(traj_mm)
 
+## ----results = "hide"---------------------------------------------------------
+traj_mm <- safe_sir_simu(
+	paramValues = theta,
+	initialStates = initialStates,
+	times = time,
+	method = "mixed",
+	tau = 0.009,
+  msaTau = 0.0001,
+  msaIt = 20)
+
+## ----eval=FALSE---------------------------------------------------------------
+#  traj_dm <- sir_simu(
+#    paramValues = theta,
+#    initialStates = initialStates,
+#    times = time,
+#    methode = "exact",
+#    seed = 166,
+#    outFile = "sir_traj.txt")
+
+## ----eval=FALSE---------------------------------------------------------------
+#  trajectory <- read.table(file = "sir_traj.txt", header = TRUE, sep = "\t", stringsAsFactors = F)
+
 ## -----------------------------------------------------------------------------
 dates <- system.file("extdata", "SIR-dates.txt", package = "TiPS")
 
@@ -123,8 +147,22 @@ sir_tree <- simulate_tree(
   nTrials = 5,
   addInfos = FALSE) # additional info for each node
 
-## ----fig.height = 10----------------------------------------------------------
+## ----fig.height = 7-----------------------------------------------------------
 ape::plot.phylo(sir_tree, cex = .5)
+
+## ----eval=FALSE---------------------------------------------------------------
+#  sir_tree <- simulate_tree(
+#    simuResults = traj_dm,
+#    dates = dates,
+#    deme = c("I"),
+#    sampled = c(I = 1),
+#    root = "I",
+#    isFullTrajectory = FALSE,
+#    nTrials = 5,
+#    addInfos = FALSE,
+#    outFile = "sir_tree.nexus",
+#    format = "nexus"
+#  )
 
 ## -----------------------------------------------------------------------------
 reactions <- c("0 [beta1 * I1] -> I1",
@@ -183,7 +221,7 @@ bd_tree <- simulate_tree(
 ## ----results = "hide"---------------------------------------------------------
 inode_cols <- ifelse(grepl(x=bd_tree$node.label,pattern="I2"),"blue","red")
 
-## ----fig.height = 10----------------------------------------------------------
+## ----fig.height = 7-----------------------------------------------------------
 ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, align.tip.label = T)
 nodelabels(pch=20,col=inode_cols)
 
@@ -221,6 +259,6 @@ bd_tree <- simulate_tree(
   nTrials = 10,
   addInfos = TRUE) # additional info for each node
 
-## ----fig.height = 10----------------------------------------------------------
+## ----fig.height = 7-----------------------------------------------------------
 ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, show.tip.label = F)
 

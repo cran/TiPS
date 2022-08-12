@@ -7,12 +7,9 @@
 \method{plot}{simutraj}(x, ...)
 }
 \arguments{
-\item{x}{An object of \code{simutraj} class resulting from running a simulator of trajectories built using the \code{build_simulator} function.}
-\item{\dots}{Further arguments to be passed to \code{plot} or to \code{plot.simutraj}.}
-}
-\value{
-\code{plot.simutraj} returns a graphical plot of the trajectory, 
-i.e the number if individuals of each compartment through time.
+\item{x}{An object of \code{simutraj} resulting from running a simulator of trajectories built using the \code{build_simulator} function.}
+
+\item{...}{Arguments to be passed to methods, such as graphical parameters}
 }
 \description{
 Plot an object of class \code{simutraj}.

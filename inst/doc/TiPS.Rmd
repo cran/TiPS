@@ -138,15 +138,16 @@ safe_sir_simu <- function(...) safe_run(sir_simu, ...)
 
 ### Direct method
 
-The default mode of the simulator is Gillespie's direct method. A trajectory is obtained by
+A trajectory using Gillespie's direct method is obtained by
 ```{r results = "hide"}
 traj_dm <- safe_sir_simu(
   paramValues = theta,
   initialStates = initialStates,
-  times = time)
+  times = time,
+  method = "exact")
 ```
 
-The output consists of a named list containing the reactions of the model (with ```$reactions```), the parameter values (with ```$values```), the time range (with ```$times```), the algorithm used to simulate (with ```$algo```), the time-step in case the algorithm is $\tau$-leap or the mixed algorithm (with ```$dT```), the random seed that was generated and was used to simulate trajectories (with ```$seed```) and finally the simulated trajectory (with ```$traj```) :
+The output consists of a named list containing the reactions of the model (with ```$reactions```), the parameter values (with ```$values```), the time range (with ```$times```), the algorithm used to simulate (with ```$method```), the time-step in case the algorithm is $\tau$-leap or the mixed algorithm (with ```$dT```), the random seed that was generated and was used to simulate trajectories (with ```$seed```) and finally the simulated trajectory (with ```$traj```) :
 
 ```{r}
 names(traj_dm)
@@ -169,6 +170,7 @@ traj_dm <- sir_simu(
   paramValues = theta,
   initialStates = initialStates,
   times = time,
+  method = "exact",
   seed = 166)
 ```
 When running this multiple times, you will always get the exact same results :
@@ -179,7 +181,7 @@ head(traj_dm$traj)
 
 ### $\tau$-leap method
 
-To use the $\tau$-leap method, the ```method``` argument must be specified. The time-step ```tau``` is by default set to 0.05. Let's fix its value to 0.009:
+The default mode of the simulator is the $\tau$-leap method. The ```method``` argument must be specified and fixed to ```approximate```. The time-step ```tau``` is by default set to 0.05. Let's fix its value to 0.009:
 ```{r results = "hide"}
 traj_tl <- safe_sir_simu(
   paramValues = theta,
@@ -202,7 +204,7 @@ plot(traj_tl)
 
 ### Mixed method
 
-To run simulations with the `mixed` algorithm (basically switching between the direct method and the $\tau$-leap method depending on the number of reactions occurring per unit of time), the ```method``` argument must be specified and fixed to ```mixed```. The time-step ```tau``` is by default set to 0.05. Let's fix its value to 0.009 :
+To run simulations with the Mixed Simulation Algorithm (MSA) (basically switching between the direct method and the $\tau$-leap method depending on the number of reactions occurring per unit of time), the ```method``` argument must be specified and fixed to ```mixed```. The time-step ```tau``` is by default set to 0.05. Let's fix its value to 0.009 :
 ```{r results = "hide"}
 traj_mm <- safe_sir_simu(
 	paramValues = theta,
@@ -217,6 +219,37 @@ Outputs are similar to the other methods and the trajectory can also be plotted 
 names(traj_mm)
 head(traj_mm$traj)
 plot(traj_mm)
+```
+
+The MSA is a new algorithm we introduce that switches from the direct method (GDA) to the tau-leap algorithm (GTA) if over ```n``` iterations (option ```msaIt```, by default ```msaIt = 10```) the time until the next event $\delta_t$ is below a user-defined threshold (option ```msaTau```, by default ```msaTau = tau/10```), and from GTA to GDA if the total number of realised events is lower than the number of possible events. When simulating trajectories with the mixed algorithm, it is possible to modify these parameters such as :
+
+```{r results = "hide"}
+traj_mm <- safe_sir_simu(
+	paramValues = theta,
+	initialStates = initialStates,
+	times = time,
+	method = "mixed",
+	tau = 0.009,
+  msaTau = 0.0001,
+  msaIt = 20)
+```
+
+### Trajectory in output file
+It is possible to specify to write the trajectory directly in a tab delimited output file with the option ```outFile```. By default, the trajectory is as presented previously and ```outFile``` is empty.
+```{r eval=FALSE}
+traj_dm <- sir_simu(
+  paramValues = theta,
+  initialStates = initialStates,
+  times = time,
+  methode = "exact",
+  seed = 166,
+  outFile = "sir_traj.txt")
+```
+
+In that case, ```traj_dm$traj``` is ```NULL``` and the output file name is indicated in ```traj_dm$outFile```.
+It is possible to visualize the simulated trajectory by reading with the ```read.table``` R function :
+```{r eval=FALSE}
+trajectory <- read.table(file = "sir_traj.txt", header = TRUE, sep = "\t", stringsAsFactors = F)
 ```
 
 # Simulating phylogenies
@@ -252,8 +285,25 @@ Finally, some runs may fail to simulate a phylogeny from a trajectory for stocha
 
 The simulated phylogeny can be visualised using:
 
-```{r fig.height = 10}
+```{r fig.height = 7}
 ape::plot.phylo(sir_tree, cex = .5)
+```
+
+It is possible to write the tree in a output file with the option ```outFile```. If a file name is given as input, by default the tree is written in a Newick format (option ```format = nexus```). To write the simulated tree in a Nexus format, the option ```format``` must be specified and fixed to ```nexus```.
+
+```{r eval=FALSE}
+sir_tree <- simulate_tree(
+  simuResults = traj_dm,
+  dates = dates,
+  deme = c("I"),
+  sampled = c(I = 1),
+  root = "I",
+  isFullTrajectory = FALSE,
+  nTrials = 5,
+  addInfos = FALSE,
+  outFile = "sir_tree.nexus",
+  format = "nexus"
+)
 ```
 
 
@@ -368,7 +418,7 @@ First we generate a vector of colors for the nodes (if we find `I2` in the node 
 inode_cols <- ifelse(grepl(x=bd_tree$node.label,pattern="I2"),"blue","red")
 ```
 Then we plot the phylogeny:
-```{r fig.height = 10}
+```{r fig.height = 7}
 ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, align.tip.label = T)
 nodelabels(pch=20,col=inode_cols)
 ```
@@ -427,7 +477,7 @@ bd_tree <- simulate_tree(
   addInfos = TRUE) # additional info for each node
 ```
 
-```{r fig.height = 10}
+```{r fig.height = 7}
 ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, show.tip.label = F)
 ```
 

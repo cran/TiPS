@@ -10,7 +10,7 @@ using namespace std;
 using namespace Rcpp;
 
 
-Phyloepid::Phyloepid(List reactions, List traj, bool fullTraj, int nTrials, bool isReSampling,  unsigned nbdates, bool verbose) :
+Phyloepid::Phyloepid(List reactions, List traj, bool fullTraj, bool isReSampling,  unsigned int nbdates, bool verbose, NumericVector options) :
 		compartments_(),
 		reactions_(),
 		roots_(),
@@ -18,30 +18,34 @@ Phyloepid::Phyloepid(List reactions, List traj, bool fullTraj, int nTrials, bool
 		fullTraj_(fullTraj),
 		traj_(traj),
 		outTree_(""),
-		nTrials_(nTrials),
+		nTrials_(options["nTrials"]),
 		strReactions_(),
 		reSampling_(isReSampling),
 		nbdates_(nbdates),
-		verbose_(verbose)
+		verbose_(verbose),
+		seed_(options["seed"])
 		//reacFind_(false)
 {
 	initCompartments();
 	readReactions(reactions);
-    initRandomSeed();
-	randomGenerator_.seed(seed_); 
+	if (seed_ == 0){
+		initRandomSeed();
+	}
+	randomGenerator_.seed(seed_);
 }
 
 // void Phyloepid::initRandomSeed(){
 // 	boost::posix_time::ptime epoch = boost::posix_time::second_clock::local_time();
 // 	boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
 // 	boost::posix_time::time_duration tzero = now - epoch;
-// 	seed_ = tzero.total_microseconds(); 
+// 	seed_ = tzero.total_microseconds();
 // }
 
 void Phyloepid::initRandomSeed(){
 	struct timeval start;
 	gettimeofday(&start,NULL);
 	seed_ = start.tv_usec;
+	randomGenerator_.seed(seed_);
 }
 
 
@@ -51,7 +55,7 @@ bool Phyloepid::simulationTree(){
 	}
 	bool ok = false;
 	unsigned i = 0;
-	
+
 	auto start_ = std::chrono::high_resolution_clock::now();
 	auto stop_ = std::chrono::high_resolution_clock::now();
 
@@ -67,7 +71,7 @@ bool Phyloepid::simulationTree(){
 		stop_ = std::chrono::high_resolution_clock::now();
 		if (roots_[0]->getNbLeaves() != nbdates_){
 			ok = false;
-		} 
+		}
 		// else{
 		// 	// Rcout << "Success !" << endl;
 		// 	auto elapsed = stop_ - start_;
@@ -92,7 +96,7 @@ bool Phyloepid::simulationTree(){
 			stop_ = std::chrono::high_resolution_clock::now();
 			if (roots_[0]->getNbLeaves() != nbdates_){
 				ok = false;
-			} 
+			}
 			// else{
 			// 	Rcout << "Success !" << endl;
 			// 	auto elapsed = stop_ - start_;
@@ -198,7 +202,7 @@ void Phyloepid::readReactions(List reactions) {
 	  		}
 	  		tmpTo = strReaction.substr(0,endTo);
 	  		if(tmpTo.size() != 0){
-	  			parseTo(tmpTo, tmpReaction);	
+	  			parseTo(tmpTo, tmpReaction);
 	  		}
 	  		if(sign != '-'){
 	  			size_t endRate = strReaction.find(']');
@@ -244,10 +248,10 @@ void Phyloepid::initCompartments(){
 		tmpComp->setName(colNames[i]);
 		compartments_[colNames[i]] = tmpComp ;
 		compartmentNames_.push_back(colNames[i]);
-
 		vector<long> compTraj = traj_[colNames[i]];
 		compTrajectories_[colNames[i]] = compTraj;
-	}	
+
+	}
 }
 
 void Phyloepid::updateCompartments(){
@@ -279,14 +283,12 @@ bool Phyloepid::run(){
 	unsigned tmpOldIndxTraj = 0;
 
 	for(unsigned i = 0 ; i < nreps.size() && !ok && continue_ && leafcount_ >= 0 ; i++){
-		tmpTime = times[i]; 
+		tmpTime = times[i];
 		strReaction = reactions[i];
-		// tmpReaction = reactions_[strReaction];
-		// nrep = nreps[i];
 
 
 		if (find(strReactions_.begin(), strReactions_.end(), strReaction) == strReactions_.end()){
-		    warning(" Error : Reactions given in input must be simular than those in the trajectory. \nReaction ", strReaction, " at time ", tmpTime, " is not included the input reactions.", "\nPlease enter correct reactions. ");
+		    warning(" Error : Reactions given in input must be similar than those in the trajectory. \nReaction ", strReaction, " at time ", tmpTime, " is not included the input reactions.", "\nPlease enter correct reactions. ");
 			return false;
 		}
 		else{ //reaction found
@@ -315,10 +317,13 @@ bool Phyloepid::run(){
 				} else if( (leafcount_ != -1) & (leafcount_ != -2) ){
 					unrootedCount = sumUnrootedNodes(); // compte le nombre de sous arbres non enracinés
 					ok = (unrootedCount == 0); // determine si la simulation d'arbre est terminee en fonction de s'il reste encore des sous arbres non-enracinés
+					if (verbose_ & !ok) {
+						warning("%i unrooted nodes left.", unrootedCount);
+					}
 				} else{
 					return false;
 				}
-			}			
+			}
 		}
 	}
 	return ok;
@@ -330,7 +335,7 @@ bool Phyloepid::updateDemeCompartments(unsigned indxTraj){
 	long tmpSize;
 	for(unsigned i = 0 ; i < compartmentNames_.size() ; i++){
 		tmpSize =  compTrajectories_[compartmentNames_[i]][indxTraj] ;
-		compartments_[compartmentNames_[i]]->setSize(tmpSize) ; 
+		compartments_[compartmentNames_[i]]->setSize(tmpSize) ;
 		update = compartments_[compartmentNames_[i]]->updateNodes() ;
 		ok = (ok && update) ;
 	}
@@ -373,7 +378,7 @@ List Phyloepid::createTreeObject() const{
 	vector<string> nodelabels = roots_[0]->getNodeLabels();
 
 	// int nbtips = tiplabels.size() ;
-	int nbtips = roots_[0]->setLeavesID(0) ; 
+	int nbtips = roots_[0]->setLeavesID(0) ;
 	int nbInodes = roots_[0]->setInnerNodesID(nbtips,0);
 	// int nbEdges = nbtips + nbInodes -1 ;
 	vector<double> edgeLengths = roots_[0]->getBranchLengths();
@@ -385,17 +390,18 @@ List Phyloepid::createTreeObject() const{
 	// mat(_,0) = edges["from"];
 	// mat(_,1) = edges["to"];
 
-	List phylogeny = List::create(Named("edge.length") = edgeLengths , _["tip.label"] = tiplabels, _["from"] = edges["from"], _["to"] = edges["to"], _["Nnode"] = nbInodes, _["node.label"] = nodelabels, _["tip.height"] = tipHeigths);
+	List phylogeny = List::create(Named("edge.length") = edgeLengths , _["tip.label"] = tiplabels, _["from"] = edges["from"], _["to"] = edges["to"], _["Nnode"] = nbInodes, _["node.label"] = nodelabels, _["tip.height"] = tipHeigths, _["seed"] = seed_);
 
 	return phylogeny;
 }
 
 
+
 RCPP_EXPOSED_CLASS(phyloepid)
 RCPP_MODULE(phyloepid){
     Rcpp::class_<Phyloepid>( "Phyloepid" )
-        .constructor<List,List,bool,int,bool,unsigned,bool>("documentation for constructor")
-	.method( "readReactions", &Phyloepid::readReactions, "test")
+        .constructor<List,List,bool,bool,unsigned int,bool,NumericVector>("documentation for constructor")
+	.method( "readReactions", &Phyloepid::readReactions, "reading model reactions")
 	.method( "simulationTree", &Phyloepid::simulationTree, "simulation of the tree")
 	.method( "getNexusTree", &Phyloepid::getNexusTree, "get simulated tree in Nexus format")
 	.method( "getNewickTree", &Phyloepid::getNewickTree, "get simulated tree in Newick format" )

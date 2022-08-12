@@ -1,8 +1,8 @@
 Package: TiPS
 Type: Package
 Title: Trajectories and Phylogenies Simulator
-Version: 1.1.1
-Date: 2022-02-01
+Version: 1.2.0
+Date: 2022-08-10
 Authors@R: c(person("Gonche", "Danesh", role = c("aut", "cre", "cph"), email = "gonche.danesh@gmail.com"),
 	     person("Emma", "Saulnier", role = c("aut", "cph")),
 			 person("Olivier", "Gascuel", role = c("aut", "cph")),
@@ -15,19 +15,20 @@ SystemRequirements: C++11
 Depends: R (>= 3.2.0)
 Imports: graphics, grDevices, gtools, inline, methods, Rcpp (>=
         0.12.14), stats, stringr, utils
-Suggests: knitr, rmarkdown, ape
+Suggests: knitr, rmarkdown, ape, testthat (>= 3.0.0)
 LinkingTo: Rcpp
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2022-02-01 09:13:39 UTC; danech
-RoxygenNote: 7.1.0
+Packaged: 2022-08-12 14:58:51 UTC; danech
+RoxygenNote: 7.1.1
 Encoding: UTF-8
 BugReports: https://gitlab.in2p3.fr/ete/tips/-/issues
 URL: https://gitlab.in2p3.fr/ete/tips/
+Config/testthat/edition: 3
 Author: Gonche Danesh [aut, cre, cph],
   Emma Saulnier [aut, cph],
   Olivier Gascuel [aut, cph],
   Marc Choisy [aut, cph, ths],
   Samuel Alizon [aut, cph, ths]
 Repository: CRAN
-Date/Publication: 2022-02-01 16:50:02 UTC
+Date/Publication: 2022-08-12 15:40:05 UTC

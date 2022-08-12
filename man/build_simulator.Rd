@@ -2,9 +2,9 @@
 % Please edit documentation in R/generator.R
 \name{build_simulator}
 \alias{build_simulator}
-\title{Builds a simulator of dynamics of population-model}
+\title{Build a simulator of dynamics of population-model}
 \usage{
-build_simulator(reactions,  functions = NULL)
+build_simulator(reactions, functions = NULL)
 }
 \arguments{
 \item{reactions}{A character vector of reactions describing the input model.}
@@ -13,32 +13,28 @@ build_simulator(reactions,  functions = NULL)
 }
 \value{
 An object of class \code{simulation}, which is a function that can be used to simulate trajectories from the model.
-The mandatory arguments of the returned function are the followinf :
-\item{paramValues}{numerical list : values of parameters of the model},
-\item{initialStates}{numerical vector : values of initial number of individuals},
-\item{times}{numerical vector : time intervals.}
-\item{nTrials}{integer : number of trials of simulation.}
-\item{seed}{integer : seed for reproducible simulations.}
-\item{verbose}{logical: whether to print some information}
 }
 \description{
 A simulator is built by supplying reactions of the model described by our formalism or described by differential equations
 The returned function will be used to simulate trajectories, that can further be used to simulate phylogenies.
 }
 \examples{
+\dontrun{
 # Build a simulator for an SIR model
 reactions <- c('S [beta * S * I] -> I',
                'I [gamma * I] -> R')
 
 sir.simu <- build_simulator(reactions = reactions)
-# Run a simulation of a trajectory
-sir_traj <- sir.simu(paramValues = list(gamma = 1, beta = 2e-4),
-                     initialStates = c(I = 1, S = 9999, R = 0),
-                     times = c(0, 20),
-                     nTrials = 10,
-                     seed=166)
 
-# The output is a list with the trajectory, the algorithm, the parameter values and the reactions
+# Run a simulation of a trajectory
+sir_traj <- sir.simu(paramValues = c(gamma = 1, beta = 2e-4),
+                     initialStates = c(I = 1, S = 9999, R = 0),
+                     times = c(0, 20), ,
+                     method = "exact",
+                     seed = 166)
+
+# The output is a named list containing the trajectory, the algorithm used,
+# the parameter values and the reactions of the model.
 names(sir_traj)
 
 # Print head of the simulated trajectory
@@ -46,6 +42,7 @@ head(sir_traj$traj)
 
 # Plot the trajectory
 plot(sir_traj)
+}
 }
 \author{
 Gonche Danesh

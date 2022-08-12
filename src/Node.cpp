@@ -250,16 +250,8 @@ void Node::removeSon(Node* node)
 }
 vector<Node*> Node::getLeaves()
 {
-     /// ajouté 
-    // if(getIsSampled() && isLeaf()){
-    //     cout << name_ << "  issampled and isleaf !" << endl;
-    // }
-    // if (getIsSampled()){
-    //     cout << name_ << "  is sampled " << endl;
-    // }
     if (isLeaf())
     {
-        // cout << "is leaf " << endl;
         vector<Node*> tmp;
         tmp.push_back(this);
         return tmp;
@@ -341,7 +333,7 @@ pair<int,int> Node::getNbNodes() {
 
     if (isLeaf()){
         nodes.first++;
-    } 
+    }
     else {
         nodes.second++;
     }

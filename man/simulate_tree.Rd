@@ -14,7 +14,10 @@ simulate_tree(
   nTrials = 1,
   addInfos = FALSE,
   resampling = FALSE,
-  verbose= FALSE
+  verbose = FALSE,
+  seed = 0,
+  outFile = "",
+  format = "newick"
 )
 }
 \arguments{
@@ -22,27 +25,68 @@ simulate_tree(
 
 \item{dates}{Contains the sampling dates. Can be a vector (for example using \code{seq} function), can be a named list or a file with header.}
 
-\item{deme}{Vector containing the compartment names that contribute directly or indirectly to the phylogeny.}
+\item{deme}{A vector with the compartments that contribute to the simulation of phylogeny.}
 
 \item{sampled}{A named vector with the proportions of sampling for each compartment. This is used in case there are multiple deme compartments where the sampling dates will be randomly associated to a compartment to sample. Sum of \code{sampled} must be 1.}
 
 \item{root}{Name of the compartment from which the phylogeny is rooted.}
 
-\item{isFullTrajectory}{logical: whether to simulate complete phylogeny where all death events generate leaves. By default, \code{isFullTrajectory=FALSE}.}
+\item{isFullTrajectory}{Boolean to define if death events generate or not leaves. By default, \code{isFullTrajectory=FALSE}.}
 
-\item{addInfos}{logical: whether to define each internal node's name by the reaction. By default, \code{addInfos=FALSE}.}
+\item{nTrials}{Integer indicating the number of unsuccessful simulation trials allowed before giving up.}
 
-\item{resampling}{logical: whether to allow a sampled individual to transmit the pathogen once again. By default, \code{resampling=FALSE}.}
+\item{addInfos}{Boolean to define if each internal node' name will be the reaction. By default, \code{addInfos=FALSE}.}
 
-\item{nTrials}{Number of trials of simulations if the simulation fails, meaning that the simulation ends before the final time asked as input. By default, \code{nTrials=1}.}
+\item{resampling}{Boolean to allow a sampled individual to transmit the pathogen once again. By default, \code{resampling=FALSE}.}
 
-\item{verbose}{logical: whether to print some information}
+\item{verbose}{Boolean to allow printing time execution of simulation}
+
+\item{seed}{Seed to initialize the random generator, for better reproducibility. By default, \code{seed=0} and the seed value is randomly generated.}
+
+\item{outFile}{Output file name to write tree. By default, tree is not written in output file.}
+
+\item{format}{Output tree format if output file is given. Values are either \code{format = "newick"} ou \code{format = "nexus"}. By default, \code{format = "newick"}}
 }
 \value{
 An object of class \code{ape::phylo}.
 }
 \description{
 Simulates a phylogeny using a beackward-in-time process using sampling dates and a trajectory
+}
+\examples{
+\dontrun{
+# A multi-type birth-death model with birth rate beta,
+# death rate gamma, mutation rates m1 and m2
+# and I1 and I2 the number of infected individuals of each type.
+# With parameter beta varying over 2 time intervals.
+reactions <- c("0 [beta1 * I1] -> I1","I1 [gamma1 * I1] -> 0",
+"I1 [mu1 * I1] -> I2","0 [beta2 * I2] -> I2",
+"I2 [gamma2 * I2] -> 0","I2 [mu2 * I2] -> I1")
+
+BD_simu <- build_simulator(reactions)
+initialStates <- c(I1 = 0, I2 = 1)
+times <- c(1975, 1998, 2018)
+theta <- list(gamma1 = c(0.2, 0.09), gamma2 = 0.1, mu1 = 0.025,
+mu2 = 0.021, beta1 = c(0.26,0.37), beta2 = 0.414)
+BDres <- BD_simu(paramValues = theta,
+                  initialStates = initialStates,
+                  times = times,
+                  tau = 0.08,
+                  method = "approximate",
+								 seed = 994543)
+# Let's generate 100 sampling dates from 2015 and 2018
+dates_bd <- seq(from=2015, to=2018, length.out=100)
+BD_tree <- simulate_tree(simuResults = BDres,
+                         dates = dates,
+                         deme = c("I"),
+                         sampled = c(I=1),
+                         root = "I",
+                         isFullTrajectory = FALSE,
+                         seed = 973360)
+BD_tree$seed
+# Plot the simulated phylogeny using the \code{ape::plot.phylo} function.
+ape::plot.phylo(BD_tree)
+}
 }
 \author{
 Gonche Danesh

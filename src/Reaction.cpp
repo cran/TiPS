@@ -30,12 +30,12 @@ int Reaction::perform(
 {
 	//try{
 		int count = leafcount;
-		// cout << "Leafcount Reaction.cpp 1 : " << strReaction << "  =  " << leafcount << endl;
 		bool found = false;
 		unsigned indexFrom;
 
 		switch(type_){ // type de reaction à réaliser
 			case birth: // naissance (ou coalescence)
+
 				for(indexFrom = 0 ; indexFrom < from_.size() && !found ; indexFrom++){ //chrche le compartiment a l'origine de la transmission cad le donneur
 					for(unsigned i = 0 ; i < to_.size() && !found ; i++){
 						found = (from_[indexFrom]->getName() == to_[i]->getName());
@@ -64,19 +64,18 @@ int Reaction::perform(
 				}
 				break;
 			case death:
-				// cout << "count Reaction.cpp death reac : " << count << endl;
 				break;
 			case sampledDeath:
 				count = evalSampling(nTimes,strReaction,time,count,compTrajectories,indxTraj,false);
 				break;
 			case sampling:
-				if( (to_[0]->getSize() - to_[0]->getOldNodes() - to_[0]->getOldUnsampledNodes()) >= nTimes ){
+				if( (to_[0]->getSize() - to_[0]->getOldNodes() + to_[0]->getOldUnsampledNodes()) >= nTimes ){
 					// evalue si il reste des individus non echantillonnés
 					count = evalSampling(nTimes,strReaction,time,count,compTrajectories,indxTraj,isresampling);
 				}
 				else{
 					//warning("Error : Cannot sample compartment ", to_[0]->getName(), ", the number of individuals is not sufficient.");
-					warning("Error : Cannot sample a compartment, the number of individuals is not sufficient.");
+					warning("Error : Cannot sample compartment %s, the number of individuals is not sufficient.", to_[0]->getName());
 					count = -1;
 				}
 				break;

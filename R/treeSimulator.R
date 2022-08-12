@@ -1,5 +1,5 @@
 #' Simulates a phylogeny using a beackward-in-time process using sampling dates and a trajectory
-#' 
+#'
 #' @param simuResults Object of class \code{simutraj} resulting from running a simulator of trajectories built using the \code{build_simulator} function.
 #' @param dates Contains the sampling dates. Can be a vector (for example using \code{seq} function), can be a named list or a file with header.
 #' @param deme A vector with the compartments that contribute to the simulation of phylogeny.
@@ -8,48 +8,52 @@
 #' @param isFullTrajectory Boolean to define if death events generate or not leaves. By default, \code{isFullTrajectory=FALSE}.
 #' @param addInfos Boolean to define if each internal node' name will be the reaction. By default, \code{addInfos=FALSE}.
 #' @param resampling Boolean to allow a sampled individual to transmit the pathogen once again. By default, \code{resampling=FALSE}.
-#' 
-#' @return An object of class \code{ape::phylo}. 
-#' 
+#' @param seed Seed to initialize the random generator, for better reproducibility. By default, \code{seed=0} and the seed value is randomly generated.
+#' @param outFile Output file name to write tree. By default, tree is not written in output file.
+#' @param format Output tree format if output file is given. Values are either \code{format = "newick"} ou \code{format = "nexus"}. By default, \code{format = "newick"}
+#' @param nTrials Integer indicating the number of unsuccessful simulation trials allowed before giving up.
+#' @param verbose Boolean to allow printing time execution of simulation
+#'
+#' @returns An object of class \code{ape::phylo}.
+#'
 #' @author Gonche Danesh
 #' @export
-#' 
-#' @example 
-#' # A birth-death model with birth rate beta, death rate gamma and I the number of infected individuals.
-#' # With parameter beta varying over 10 time intervals.
-#' reactions <- c("0 [beta*I] -> I", "I [gamma*I] -> 0")
-#' BD.simu <- build_simulator(reactions = reactions)
-#' theta <- tibble::tribble(
-#'      ~beta,
-#'     .8827628,
-#'     .714422,
-#'     .7390572,
-#'     .5871399,
-#'     .5542929,
-#'     .6323045,
-#'     .8334923,
-#'     .5707164,
-#'     .51734,
-#'     .7308455) %$%
-#' list(beta = beta, gamma = .410587333412841)
-#' times <- seq(1926.17, by = 8.683, le = 11)
-#' BDres <- BD.simu(paramValues = theta,
-#'                   initialStates = c(I = 1),
+#'
+#' @examples
+#' \dontrun{
+#' # A multi-type birth-death model with birth rate beta,
+#' # death rate gamma, mutation rates m1 and m2
+#' # and I1 and I2 the number of infected individuals of each type.
+#' # With parameter beta varying over 2 time intervals.
+#' reactions <- c("0 [beta1 * I1] -> I1","I1 [gamma1 * I1] -> 0",
+#' "I1 [mu1 * I1] -> I2","0 [beta2 * I2] -> I2",
+#' "I2 [gamma2 * I2] -> 0","I2 [mu2 * I2] -> I1")
+#'
+#' BD_simu <- build_simulator(reactions)
+#' initialStates <- c(I1 = 0, I2 = 1)
+#' times <- c(1975, 1998, 2018)
+#' theta <- list(gamma1 = c(0.2, 0.09), gamma2 = 0.1, mu1 = 0.025,
+#' mu2 = 0.021, beta1 = c(0.26,0.37), beta2 = 0.414)
+#' BDres <- BD_simu(paramValues = theta,
+#'                   initialStates = initialStates,
 #'                   times = times,
-#'                   dT = 0.08,
-#'                   nTrials = 10)
-#' # File with 157 sampling dates from 1987 to 2012.
-#' dates <- system.file("extdata", "BD-10_dates.txt", package = "TiPS")
+#'                   tau = 0.08,
+#'                   method = "approximate",
+#'									 seed = 994543)
+#' # Let's generate 100 sampling dates from 2015 and 2018
+#' dates_bd <- seq(from=2015, to=2018, length.out=100)
 #' BD_tree <- simulate_tree(simuResults = BDres,
 #'                          dates = dates,
 #'                          deme = c("I"),
 #'                          sampled = c(I=1),
 #'                          root = "I",
 #'                          isFullTrajectory = FALSE,
-#'                          nTrials = 5)
-#' # Plot the simulated phylogeny using the \code{ape::plot.phylo} function. 
+#'                          seed = 973360)
+#' BD_tree$seed
+#' # Plot the simulated phylogeny using the \code{ape::plot.phylo} function.
 #' ape::plot.phylo(BD_tree)
-simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTrajectory = FALSE, nTrials = 1, addInfos = FALSE, resampling = FALSE, verbose=FALSE){
+#' }
+simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTrajectory = FALSE, nTrials = 1, addInfos = FALSE, resampling = FALSE, verbose=FALSE, seed=0, outFile="", format="newick"){
 
 	checkArgs<-TRUE
 	if(missing(simuResults)){
@@ -75,14 +79,16 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	    isFullTrajectory = TRUE
 	    dates = NULL
 	}
-	
+
 	if(checkArgs){
-    
+
 		reactions <- simuResults$reactions
 		trajectory <- simuResults$traj
-	    
+
+		options <- c("seed" = seed, "nTrials" = nTrials)
+
 		rtrajectory = .merge_trajectory_dates(reactions, trajectory, dates, sampled, root, deme, isFullTrajectory)
-		Phylo=Phyloepid$new(rtrajectory$reactions,rtrajectory$trajectory,isFullTrajectory,nTrials,resampling,rtrajectory$nbdates, verbose)
+		Phylo=Phyloepid$new(rtrajectory$reactions,rtrajectory$trajectory,isFullTrajectory,resampling,rtrajectory$nbdates, verbose, options)
 		ok=Phylo$simulationTree()
 
 		tree<-list()
@@ -95,6 +101,19 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	      	tree[["edge"]]=edges
 	      	tree$from=NULL
 	      	tree$to=NULL
+	      	if(!addInfos){
+	      		tree$node.label=NULL
+	      		tree$tip.height=NULL
+	      	}
+					if(outFile != ""){
+						if(format == "newick"){
+							tree_str <- Phylo$getNewickTree(addInfos)
+						}
+						else if(format == "nexus"){
+							tree_str <- Phylo$getNexusTree(addInfos)
+						}
+						write(x = tree_str, file = outFile)
+					}
 	      	class(tree)<-"phylo"
 
 	    }else{
@@ -120,7 +139,7 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 
 	## From traj simulation formalism to tree simulation formalism
 	lnR<-length(reactions)
-	rates<-unlist(stringr::str_extract_all(string = reactions, pattern = "(?<=\\[).*(?=\\])"))
+	rates<-unlist(stringr::str_extract_all(string = reactions, pattern = "(?<=\\[).*(?=\\])")) # récupérer ce qui est entre crochets
 	froms<-vector()
 	tos<-vector()
 	for(i in 1:lnR){
@@ -130,27 +149,31 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	  tos[i]<-stringr::str_extract_all(second[2], stringr::boundary("word"))[[1]]
 	}
 	indivNames<-unique(c(froms,tos))
-	indivNames<-indivNames[!grepl("^[[:digit:]]+$",indivNames)]
-
+	indivNames<-indivNames[!grepl("^[[:digit:]]+$",indivNames)] # retirer le 0 dans le cas où naissance sans individu
 	non_deme<-indivNames[indivNames %notin% deme]
+
 	rates_sep<-sapply(rates, stringr::str_extract_all, stringr::boundary("word"))
 	matches <- lapply(rates_sep , match  , indivNames )
 	matches <- lapply(matches, function(x) x[!is.na(x)])
-	
-	tree_reactions<-vector()
+
+	tree_reactions<-vector(length = lnR)
 	for(i in 1:lnR){
 	  tmp<-matches[[i]]
 	  indx<-which(indivNames[tmp] %notin% froms[i])
-	  if(length(indx)>0){ 
-	    ## if birth reaction 
-	    indiv_add<-indivNames[tmp][indx]
-	    if(froms[i] == "0"){
-	      reac<-paste0(indiv_add,"+=[",rates[i],"]",tos[i],"+",indiv_add)
-	    }else{
-	      reac<-paste0(froms[1],"+",indiv_add,"+=[",rates[i],"]",tos[i],"+",indiv_add)
-	    }
-	  } 
-	  else{
+	  if(length(indx)>0){
+			## if birth reaction
+			if(length(indx)>1){
+				## if for example rate = S1*I1/(I1+I2+S1...)
+				indiv_add<-indivNames[tmp][indx][1]
+			} else{
+				indiv_add<-indivNames[tmp][indx]
+			}
+			if(froms[i] == "0"){
+				reac<-paste0(indiv_add,"+=[",rates[i],"]",tos[i],"+",indiv_add)
+			}else{
+				reac<-paste0(froms[i],"+",indiv_add,"+=[",rates[i],"]",tos[i],"+",indiv_add)
+			}
+	  } else{
 	    if(tos[i] == "0"){
 	      ## if death
 	      reac<-paste0(froms[i],"-=[",rates[i],"]")
@@ -165,13 +188,13 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	  trajectory$Reaction[trajectory$Reaction == reactions[i]] <- tree_reactions[i]
 	}
 	#trajectory[non_deme]<-NULL
-	
+
 	if(sum(!indivNames %in% deme) > 0){
 		non_deme_reactions<-vector()
 		deme_indx_to_search<-which(indivNames %in% deme)
 		indx_non_deme_reactions<-which(names(rates_sep) %notin% names(which(sapply(matches, function(r) any(r %in% deme_indx_to_search)))))
 		non_deme_reactions<-tree_reactions[indx_non_deme_reactions]
-		trajectory[trajectory$Reaction %notin% non_deme_reactions,]	
+		trajectory[trajectory$Reaction %notin% non_deme_reactions,]
 	}
 	reactions<-tree_reactions
 	############################
@@ -211,7 +234,7 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 		    	ok = FALSE
 		    	warning("Error : input of sampling dates is wrong.")
 		  	} else{
-		    	dates<-data.frame(Time=dates, stringsAsFactors = F) 
+		    	dates<-data.frame(Time=dates, stringsAsFactors = F)
 		  	}
 		} else {
 		  	ok = FALSE
@@ -225,7 +248,7 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 		  	sampled<-tmp
 		}
 
-		## Dates + Reaction 
+		## Dates + Reaction
 		if(length(colnames(dates)) == 1){
 		  	# Only dates -> generate randomly
 		  	dates$Reaction<-sample(names(sampled), nrow(dates), prob=sampled, replace=T)
@@ -239,7 +262,7 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 			reactions<-c(reactions,names(sampled)[i])
 		}
 		compNames<-colnames(trajectory)[!(colnames(trajectory) %in% c("Time", "Reaction", "Nrep"))]
-	
+
 		dates$Nrep<-1
 
 		lndates<-length(dates$Nrep)
@@ -258,7 +281,7 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	}else{
 		fullTraj<-trajectory
 	}
-	
+
 
 	fullTraj$Reaction<-factor(fullTraj$Reaction, levels=reactions, ordered = TRUE)
 
