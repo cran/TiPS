@@ -59,7 +59,7 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	if(missing(simuResults)){
 		warning("Simulation results object necessary to simulate tree.")
 		checkArgs<-FALSE
-	} else if(length(simuResults$traj) == 0){
+	} else if(length(simuResults$traj) == 0 & length(simuResults$outFile) == 0){
 		warning("The trajectory in simuResults argument is an empty list.")
 		checkArgs<-FALSE
 	}
@@ -83,7 +83,12 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	if(checkArgs){
 
 		reactions <- simuResults$reactions
-		trajectory <- simuResults$traj
+		warning(simuResults$outFile)
+		if(length(simuResults$outFile) != 0 ){#& utils::file_test(op="-f", x=simuResults$outFile)){
+			trajectory <- utils::read.table(file = simuResults$outFile, header = T, stringsAsFactors = F, sep = "\t")
+		} else{
+			trajectory <- simuResults$traj
+		}
 
 		options <- c("seed" = seed, "nTrials" = nTrials)
 
@@ -119,6 +124,9 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	    }else{
 	    	message("Failure.")
 	    }
+	    rm(trajectory)
+	    rm(Phylo)
+	    rm(ok)
 	    return(tree)
     }
 

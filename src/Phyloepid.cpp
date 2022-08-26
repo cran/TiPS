@@ -395,8 +395,11 @@ List Phyloepid::createTreeObject() const{
 	return phylogeny;
 }
 
-
-
+// static void phyloepid_finalizer(Phyloepid* ptr){
+//     if (ptr){
+//         delete ptr;
+//     }
+// }
 RCPP_EXPOSED_CLASS(phyloepid)
 RCPP_MODULE(phyloepid){
     Rcpp::class_<Phyloepid>( "Phyloepid" )
@@ -409,5 +412,6 @@ RCPP_MODULE(phyloepid){
 	.method( "getNbNodes", &Phyloepid::getNbNodes, "get number of tips and number of inner nodes" )
 	.method( "getTipLabels", &Phyloepid::getTipLabels, "get tip labels" )
 	.method( "createTreeObject", &Phyloepid::createTreeObject, "create R tree object" )
+	// .finalizer(&phyloepid_finalizer)
     ;
 }

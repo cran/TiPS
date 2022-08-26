@@ -126,7 +126,7 @@ traj_mm <- safe_sir_simu(
 #    paramValues = theta,
 #    initialStates = initialStates,
 #    times = time,
-#    methode = "exact",
+#    method = "exact",
 #    seed = 166,
 #    outFile = "sir_traj.txt")
 
@@ -145,7 +145,8 @@ sir_tree <- simulate_tree(
   root = "I", # type of individual at the root of the tree
   isFullTrajectory = FALSE, # deads do not generate leaves
   nTrials = 5,
-  addInfos = FALSE) # additional info for each node
+  addInfos = FALSE, # additional info for each node
+  seed = 54673) ## to reproduce results (optionnal)
 
 ## ----fig.height = 7-----------------------------------------------------------
 ape::plot.phylo(sir_tree, cex = .5)

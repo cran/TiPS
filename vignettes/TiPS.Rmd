@@ -241,7 +241,7 @@ traj_dm <- sir_simu(
   paramValues = theta,
   initialStates = initialStates,
   times = time,
-  methode = "exact",
+  method = "exact",
   seed = 166,
   outFile = "sir_traj.txt")
 ```
@@ -274,7 +274,8 @@ sir_tree <- simulate_tree(
   root = "I", # type of individual at the root of the tree
   isFullTrajectory = FALSE, # deads do not generate leaves
   nTrials = 5,
-  addInfos = FALSE) # additional info for each node
+  addInfos = FALSE, # additional info for each node
+  seed = 54673) ## to reproduce results (optionnal)
 ```
 
 The `sampled` option can be used for labelled phylogenies (i.e. with multiple host types) but it requires specifying the proportion of each label type. The `root` option indicates the state of the individual initiating the dynnamics. See the next section for details.

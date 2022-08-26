@@ -73,7 +73,7 @@ simulator_generator<-function(reactions, functions=NULL){
       outTrajectory << trajectoryHeaderToString() << endl;
       outTrajectory << "" << setprecision(10) << time_ << "\\t" ;
       outTrajectory << compartmentStatesToString() << "\\t" ;
-      outTrajectory << "\\tinit\\t1" << endl;;
+      outTrajectory << "init\\t1" << endl;;
     }
     for ( ; timePart<timePartLim && computeTotalRate()!=0 && nEvents>=0 ; timePart++) {
       initParams(timePart);
