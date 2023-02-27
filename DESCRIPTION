@@ -1,25 +1,24 @@
 Package: TiPS
 Type: Package
 Title: Trajectories and Phylogenies Simulator
-Version: 1.2.1
-Date: 2022-08-26
+Version: 1.2.2
+Date: 2023-02-07
 Authors@R: c(person("Gonche", "Danesh", role = c("aut", "cre", "cph"), email = "gonche.danesh@gmail.com"),
 	     person("Emma", "Saulnier", role = c("aut", "cph")),
 			 person("Olivier", "Gascuel", role = c("aut", "cph")),
 	     person("Marc", "Choisy", role = c("aut", "cph", "ths")),
 	     person("Samuel", "Alizon", role = c("aut", "cph", "ths")))
 Maintainer: Gonche Danesh <gonche.danesh@gmail.com>
-Description: Generates stochastic time series and genealogies associated with a population dynamics model. Times series are simulated using the Gillespie exact and approximate algorithms and a new algorithm we introduce that uses both approaches to optimize the time execution of the simulations. Genealogies are simulated from a trajectory using a backwards-in-time based approach. Methods are described in Danesh G et al (2020) <doi:10.1101/2020.11.09.373795>.
+Description: Generates stochastic time series and genealogies associated with a population dynamics model. Times series are simulated using the Gillespie exact and approximate algorithms and a new algorithm we introduce that uses both approaches to optimize the time execution of the simulations. Genealogies are simulated from a trajectory using a backwards-in-time based approach. Methods are described in Danesh G et al (2022) <doi:10.1111/2041-210X.14038>.
 License: GPL (>= 2)
-SystemRequirements: C++11
-Depends: R (>= 3.2.0)
+Depends: R (>= 3.5.0)
 Imports: graphics, grDevices, gtools, inline, methods, Rcpp (>=
         0.12.14), stats, stringr, utils
 Suggests: knitr, rmarkdown, ape, testthat (>= 3.0.0)
 LinkingTo: Rcpp
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2022-08-26 19:05:45 UTC; danech
+Packaged: 2023-02-27 08:15:56 UTC; danesh
 RoxygenNote: 7.1.1
 Encoding: UTF-8
 BugReports: https://gitlab.in2p3.fr/ete/tips/-/issues
@@ -31,4 +30,4 @@ Author: Gonche Danesh [aut, cre, cph],
   Marc Choisy [aut, cph, ths],
   Samuel Alizon [aut, cph, ths]
 Repository: CRAN
-Date/Publication: 2022-08-26 19:34:46 UTC
+Date/Publication: 2023-02-27 23:42:33 UTC

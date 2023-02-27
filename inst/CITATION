@@ -1,13 +1,13 @@
 citHeader("To cite TiPS in publications, please use:")
 
-citEntry(
-  entry    = "Article",
+bibentry(
+  bibtype    = "Article",
   title    = "TiPS: simulating trajectories and phylogenies from population dynamics models",
-  author   = personList(as.person("G. Danesh"), as.person("E. Saulnier"),  as.person("O. Gascuel"),  as.person("M. Choisy"), as.person("S. Alizon")),
-  journal  = "biorXiv",
-  year     = "2020",
-  url      = "https://www.biorxiv.org/content/10.1101/2020.11.09.373795v1",
+  author   = c(as.person("G. Danesh"), as.person("E. Saulnier"),  as.person("O. Gascuel"),  as.person("M. Choisy"), as.person("S. Alizon")),
+  journal  = "Methods in Ecology and Evolution",
+  year     = "2022",
+  url      = "https://doi.org/10.1111/2041-210X.14038",
   textVersion = paste(
-	"Danesh G. et al 2020. TiPS: simulating trajectories and phylogenies from population dynamics models. biorXiv."
+	"Danesh G. et al 2022. TiPS: simulating trajectories and phylogenies from population dynamics models. Methods in Ecology and Evolution."
   )
 )

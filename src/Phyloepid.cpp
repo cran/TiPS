@@ -54,7 +54,7 @@ bool Phyloepid::simulationTree(){
 		Rcout << "Running simulation of the tree based on the trajectory..." << endl;
 	}
 	bool ok = false;
-	unsigned i = 0;
+	int i = 0;
 
 	auto start_ = std::chrono::high_resolution_clock::now();
 	auto stop_ = std::chrono::high_resolution_clock::now();
@@ -146,7 +146,7 @@ string Phyloepid::getNexusTree(const bool& withInfos){
 	tree << "begin taxa;" << endl;;
 	tree << "\t" << "dimensions ntax=" << (leafcount_-1) << ";" << endl;
 	tree << "\t" << "taxlabels" << endl;
-	for(unsigned i=1 ; i<leafcount_ ; i++){
+	for(int i=1 ; i<leafcount_ ; i++){
 		tree << "\t\"I_" << i << "\"" << endl ;
 	}
 	tree << ";" << endl;

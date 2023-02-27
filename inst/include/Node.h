@@ -67,7 +67,6 @@ class Node
         bool isRoot() const; // vrai si le noeud courant n'a pas de noeud père
         bool isLeaf() const; // vrai si la liste de fils est vide
         void removeSon(Node* node); // supprime la connection entre le noeud courant et un noeud fils
-        void deleteMe(); // efface le noeud sans perte de connections entre l'éventuel père du noeud courant et les éventuels fils du noeud courant
         void clean();
         bool getIsSampled();
 
