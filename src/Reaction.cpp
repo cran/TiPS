@@ -32,7 +32,6 @@ int Reaction::perform(
 		int count = leafcount;
 		bool found = false;
 		unsigned indexFrom;
-
 		switch(type_){ // type de reaction à réaliser
 			case birth: // naissance (ou coalescence)
 
@@ -171,7 +170,7 @@ int Reaction::evalCoalescence(
 			nbDonnor = rhyper( nTimes, (double) from_[indexFrom]->getOldNodes(), from_[indexFrom]->getSize());
 		}
 		else{ // si le donneur genere un individu du même compartiment que lui
-			nbDonnor = rhyper( nTimes, (double) from_[indexFrom]->getOldNodes() - nbRecipient, ( from_[1-indexFrom]->getSize() - nTimes));
+			nbDonnor = rhyper( nTimes, (double) from_[indexFrom]->getOldNodes() - nbRecipient, ( from_[indexFrom]->getSize() - nTimes));
 		}
 
 		nbCoal = rhyper((double) nbRecipient, (double) nbDonnor, (double) nTimes);

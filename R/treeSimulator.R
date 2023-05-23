@@ -90,7 +90,7 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 			trajectory <- simuResults$traj
 		}
 
-		options <- c("seed" = seed, "nTrials" = nTrials)
+		options <- list("seed" = seed, "nTrials" = nTrials, "deme" = deme)
 
 		rtrajectory = .merge_trajectory_dates(reactions, trajectory, dates, sampled, root, deme, isFullTrajectory)
 		Phylo=Phyloepid$new(rtrajectory$reactions,rtrajectory$trajectory,isFullTrajectory,resampling,rtrajectory$nbdates, verbose, options)
@@ -192,10 +192,17 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	  }
 	  tree_reactions[i]<-reac
 	}
-	for(i in 1:lnR){
-	  trajectory$Reaction[trajectory$Reaction == reactions[i]] <- tree_reactions[i]
-	}
+	#for(i in 1:lnR){
+	#  trajectory$Reaction[trajectory$Reaction == reactions[i]] <- tree_reactions[i]
+	#}
 	#trajectory[non_deme]<-NULL
+	trajectory$tmp <- NA
+	for(i in 1:lnR){
+	  trajectory$tmp[which(trajectory$Reaction == reactions[i])] <- tree_reactions[i]
+	}
+	trajectory$tmp[which(trajectory$Reaction == "init")] <- "init"
+	trajectory$Reaction <- trajectory$tmp
+	trajectory$tmp <- NULL
 
 	if(sum(!indivNames %in% deme) > 0){
 		non_deme_reactions<-vector()

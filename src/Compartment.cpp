@@ -8,7 +8,8 @@ Compartment::Compartment() :
 		newNodes_(0),
 		oldUnsampledNodes_(0),
 		nodes_(),
-		size_(0)
+		size_(0),
+		isDeme_(false)
 {}
 
 Compartment::Compartment(const std::string& name) :
@@ -17,7 +18,8 @@ Compartment::Compartment(const std::string& name) :
 		newNodes_(0),
 		oldUnsampledNodes_(0),
 		nodes_(),
-		size_(0)
+		size_(0),
+		isDeme_(false)
 {}
 
 Compartment::Compartment(const std::string& name, const long& i_size) :
@@ -26,7 +28,8 @@ Compartment::Compartment(const std::string& name, const long& i_size) :
 		newNodes_(0),
 		oldUnsampledNodes_(0),
 		nodes_(),
-		size_(i_size)
+		size_(i_size),
+		isDeme_(false)
 {}
 
 Compartment::~Compartment(){}

@@ -94,7 +94,7 @@ class Node
         std::vector<std::string> getTipLabels();
         std::vector<double> getTipHeights();
         std::vector<std::string> getNodeLabels();
-        std::map<std::string,std::vector<int>> getEdges();
+        std::map<std::string,std::vector<int> > getEdges();
         int setInnerNodesID(int nbtips, int maxid); // annotate inner nodes with id
         int setLeavesID(int maxid); // annotate tips with id
 

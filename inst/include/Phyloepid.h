@@ -32,15 +32,21 @@ class Phyloepid {
 		bool verbose_;
 		long seed_;
 
+		double treeEdge_;
+		double initTime_;
+
+		std::vector<std::string> demes_;
+
 	public:
 		// Phyloepid(Settings* sets);
-		Phyloepid(List reactions, List traj, bool fulTree, bool isresampling, unsigned int nbdates, bool verbose, NumericVector options);
+		Phyloepid(List reactions, List traj, bool fulTree, bool isresampling, unsigned int nbdates, bool verbose, List options);
 		bool simulationTree();
 		std::string getNexusTree(const bool& withInfos);
 		std::string getNewickTree(const bool& withInfos);
 		void initRandomSeed();
 		virtual ~Phyloepid();
 		void getInfo();
+		double getTreeEdge();
 
 		// std::map<std::string,Compartment*> getCompartments() const {return compartments_;}
 		// std::map<std::string,Reaction*> getReactions() const {return reactions_;}

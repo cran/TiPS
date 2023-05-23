@@ -20,6 +20,7 @@ class Compartment {
 		long oldUnsampledNodes_;
 		std::vector<Node*> nodes_;
 		long size_;
+		bool isDeme_;
 
 	public:
 		Compartment();
@@ -36,11 +37,13 @@ class Compartment {
 		long getNewNodes() const {return newNodes_;}
 		long getOldUnsampledNodes() const {return oldUnsampledNodes_;}
 		long getSize() const { return size_; };
+		bool getIsDeme() const { return isDeme_; };
 
 		// Setters
 		void setName(const std::string& name) {name_=name;}
 		void setNodes(const std::vector<Node*>& nodes) {nodes_=nodes;}
 		void setSize(const long& size) { size_=size; };
+		void setIsDeme(const bool& isDeme) { isDeme_ = isDeme; }
 
 		// Modifiers
 		void init();

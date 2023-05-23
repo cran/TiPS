@@ -418,6 +418,7 @@ First we generate a vector of colors for the nodes (if we find `I2` in the node 
 ```{r results = "hide"}
 inode_cols <- ifelse(grepl(x=bd_tree$node.label,pattern="I2"),"blue","red")
 ```
+
 Then we plot the phylogeny:
 ```{r fig.height = 7}
 ape::plot.phylo(bd_tree, root.edge = T, no.margin = F, align.tip.label = T)

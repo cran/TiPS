@@ -699,7 +699,7 @@ simulator_generator<-function(reactions, functions=NULL){
   updateReacOutput<-updateReacOutput
 
   ################### RE INITIALIZE DATA FRAME ##############
-  reInitialize<-paste(dfClear,'time_ = vTimes_[0];','dfreactions.assign(1,"init");','dfNrep.assign(1,1);',compartments,'updateCompartments();','initParams(0);','updateDataFrameOutput();',sep='\n')
+  reInitialize<-paste(dfClear,'time_ = vTimes_[0];','dfreactions.assign(1,"init");','dfNrep.assign(1,1);',compartments,'updateCompartments();','initParams(0);',sep='\n')
   reInitialize<-paste('void reInitializeDataFrame(){',reInitialize,sep='\n\t')
   reInitialize<-paste(reInitialize,'}',sep='\n')
 
