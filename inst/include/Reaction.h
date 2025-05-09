@@ -12,9 +12,8 @@
 using namespace Rcpp;
 
 
-// #include <boost/math/distributions/hypergeometric.hpp> // hypergeometric distribution
-
 #include "Compartment.h"
+#include <random>
 
 class Reaction {
 	private:
@@ -23,6 +22,7 @@ class Reaction {
 		std::vector<Compartment*> from_;
 		std::vector<Compartment*> to_;
 		int count_ ;
+		std::mt19937* rng_;
 
 	public:
 		Reaction();
@@ -50,12 +50,14 @@ class Reaction {
 		void setToCompartements(const std::vector<Compartment*>& to) {to_=to;}
 
 		void setCount(const int& count) {count_ = count;}
+		
+		void setGenerator(std::mt19937* rng) { rng_ = rng;}
 
 		// Adders
 		void addFrom(Compartment* from);
 		void addTo(Compartment* to);
 
-		int perform(const long& nTimes,const std::string& strReaction,const double& time,std::map<std::string,std::vector<long>>& compTrajectories,unsigned indxTraj,unsigned count, std::vector<Node*>* roots, bool isresampling, bool fullTraj);
+		int perform(const long& nTimes,const std::string& strReaction,const double& time,std::map<std::string, std::vector<long>>& compTrajectories,unsigned indxTraj,unsigned count, std::vector<Node*>* roots, bool isresampling, bool fullTraj);
 		// void evalRooting(const long& nTimes, const std::string& strReaction, const double& time, std::vector<Node*>* roots, std::ofstream& outLog);
 		int evalCoalescence(const long& nTimes, const unsigned& indexFrom, const std::string& strReaction, const double& time, const unsigned& leafcount, std::vector<Node*>* roots, std::map<std::string,std::vector<long>>& compTrajectories,unsigned indxTraj, bool fullTraj);
 		int evalMigration(const long& nTimes, const std::string& strReaction, const double& time, const unsigned& leafcount, std::map<std::string,std::vector<long>>& compTrajectories,unsigned indxTraj);
@@ -69,6 +71,13 @@ class Reaction {
 		bool performMigration(const std::string& strReaction, const double& time);
 
 		unsigned rhyper(const unsigned& nTimes, const unsigned& k, const unsigned& N);
+		unsigned drawNodeIndex(const unsigned& max);
+		
+		// Codes de retour des fonctions perform / eval :
+		// -1 = erreur critique (rooting impossible, sampling incohérent)
+		// -2 = aucun événement visible (réessai possible)
+		// >=0 = simulation OK, nombre de feuilles générées
+		
 };
 
 #endif /* REACTION_H_ */

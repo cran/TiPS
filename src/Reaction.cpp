@@ -1,4 +1,6 @@
 #include "Reaction.h"
+#include <boost/math/distributions/hypergeometric.hpp> // hypergeometric distribution
+
 using namespace std;
 
 Reaction::Reaction() : type_(none), from_(), to_(), count_(0)
@@ -44,7 +46,7 @@ int Reaction::perform(
 				if(!found){ //si aucun donneur -> enracinement
 					if(from_[0]->getOldNodes() == 0){
 						count = -1;
-						warning("Error in rooting. No node left for rooting.");
+					  Rcpp::warning("Cannot root the tree: no nodes left in the source compartment.");
 					}
 					else{
 						performRooting(strReaction,time,roots);
@@ -56,7 +58,7 @@ int Reaction::perform(
 				break;
 			case migration:
 				if(fullTraj & (from_[0]->getOldNodes()==0) ){
-					// si on veut simuler la phylogénie complète et qu'il y a 0 node à pour la mimgration
+					// si on veut simuler la phylogénie complète et qu'il y a 0 node à pour la migration car aucun événement visible n'a encore été simulé
 					count = -2; // type d'erreur
 				} else{
 					count = evalMigration(nTimes,strReaction,time, count, compTrajectories,indxTraj);
@@ -74,7 +76,7 @@ int Reaction::perform(
 				}
 				else{
 					//warning("Error : Cannot sample compartment ", to_[0]->getName(), ", the number of individuals is not sufficient.");
-					warning("Error : Cannot sample compartment %s, the number of individuals is not sufficient.", to_[0]->getName());
+					Rcpp::warning("Sampling failed: not enough individuals in compartment '%s' (needed: %u, available: %u).", to_[0]->getName().c_str(), nTimes, to_[0]->getSize());
 					count = -1;
 				}
 				break;
@@ -96,8 +98,12 @@ int Reaction::performRooting(
 		bool ok = true;
 		int res = 0;
 		Node* root = new Node("",time); //cree un nouveau noeud racine
-		unsigned r1 = R::runif(0, from_[0]->getOldNodes()-1);
+		if (from_[0]->getOldNodes() == 0) return 0;
+		
+		// unsigned r1 = R::runif(0, from_[0]->getOldNodes()-1);
 		// unsigned r1 = rand() % from_[0]->getOldNodes(); // pioche aléatoirement un noeud à enraciner
+		unsigned r1 = drawNodeIndex(from_[0]->getOldNodes());
+		
 		root->addSon(from_[0]->popNode(r1)); //relie ce noeud au noeud racine
 		ok = ok & from_[0]->decrementOldNodes();
 		ok = ok & from_[0]->decrementSize();
@@ -108,10 +114,36 @@ int Reaction::performRooting(
 		return res;
 }
 
-unsigned Reaction::rhyper(const unsigned& nTimes, const unsigned& k, const unsigned& N){
-	unsigned int count = 0;
-	count = Rcpp::rhyper(1, k, (N-k), nTimes)[0];
-	return count;
+// unsigned Reaction::rhyper(const unsigned& nTimes, const unsigned& k, const unsigned& N){
+// 	unsigned int count = 0;
+// 	count = Rcpp::rhyper(1, k, (N-k), nTimes)[0];
+// 	return count;
+// }
+
+unsigned Reaction::rhyper(const unsigned& nTimes, const unsigned& k, const unsigned& N) {
+  if (!rng_) Rcpp::stop("Random generator not set in rhyper().");
+  if (k > N || nTimes > N)
+    Rcpp::stop("Invalid hypergeometric parameters in rhyper(): k and nTimes must be ≤ N.");
+  unsigned successes = 0;
+  unsigned remainingSuccesses = k;
+  unsigned remainingTotal = N;
+  for (unsigned i = 0; i < nTimes && remainingSuccesses > 0; ++i, --remainingTotal) {
+    bernoulli_distribution d(static_cast<double>(remainingSuccesses) / remainingTotal);
+    if (d(*rng_)) {
+      ++successes;
+      --remainingSuccesses;
+    }
+  }
+  return successes;
+}
+
+
+
+
+unsigned Reaction::drawNodeIndex(const unsigned& max) {
+  if (max == 0) throw std::runtime_error("Cannot draw random index from empty set");
+  uniform_int_distribution<unsigned> dist(0, max - 1);
+  return dist(*rng_);
 }
 
 int Reaction::evalSampling(
@@ -128,7 +160,7 @@ int Reaction::evalSampling(
 		unsigned nbSampling = 0;	// nombre d'echantillonnages simples a realiser
 		unsigned nbReSampling = 0;	// nombre de "re-"echantillonnage a realiser
 		if( isresampling || (!isSampledDeath() && isresampling) ){
-			nbReSampling = rhyper(nTimes, (double) to_[0]->getOldUnsampledNodes(), (to_[0]->getSize() - ((double) to_[0]->getOldNodes() - (double) to_[0]->getOldUnsampledNodes()) ) );
+			nbReSampling = rhyper(nTimes, to_[0]->getOldUnsampledNodes(), (to_[0]->getSize() - (to_[0]->getOldNodes() - to_[0]->getOldUnsampledNodes()) ) );
 		}
 		nbSampling = nTimes - nbReSampling;
 		for(unsigned i = 0 ; i < nbSampling ; i++){
@@ -164,16 +196,16 @@ int Reaction::evalCoalescence(
 		unsigned nbInviCoal = 0;
 
 		unsigned nbDonnor = 0;
-		unsigned nbRecipient = rhyper( nTimes, (double) from_[1-indexFrom]->getOldNodes(), from_[1-indexFrom]->getSize());
+		unsigned nbRecipient = rhyper( nTimes, from_[1-indexFrom]->getOldNodes(), from_[1-indexFrom]->getSize());
 
 		if(from_[0] != from_[1]){ // si les deux individus obtenus par transmission appartiennent a 2 compartiments différents (ex : E ET I)
-			nbDonnor = rhyper( nTimes, (double) from_[indexFrom]->getOldNodes(), from_[indexFrom]->getSize());
+			nbDonnor = rhyper( nTimes, from_[indexFrom]->getOldNodes(), from_[indexFrom]->getSize());
 		}
 		else{ // si le donneur genere un individu du même compartiment que lui
-			nbDonnor = rhyper( nTimes, (double) from_[indexFrom]->getOldNodes() - nbRecipient, ( from_[indexFrom]->getSize() - nTimes));
+			nbDonnor = rhyper( nTimes, from_[indexFrom]->getOldNodes() - nbRecipient, ( from_[indexFrom]->getSize() - nTimes));
 		}
 
-		nbCoal = rhyper((double) nbRecipient, (double) nbDonnor, (double) nTimes);
+		nbCoal = rhyper(nbRecipient, nbDonnor, nTimes);
 		nbInviCoal = nbRecipient - nbCoal;
 
 		for(unsigned i = 0 ; i < nbCoal ; i++){
@@ -202,7 +234,7 @@ bool Reaction::performReSampling(
 	bool ok = true;
 	if(to_[0]->getOldUnsampledNodes() == 0){
 		ok = false;
-	    warning("Error in re-sampling. No nodes left.");
+	  Rcpp::warning("Re-sampling failed: no unsampled nodes available in compartment '%s'.", to_[0]->getName().c_str());
 	} else{
 		// cout << "resampling reaction" << endl;
 		stringstream name, infos;
@@ -220,7 +252,9 @@ bool Reaction::performReSampling(
 		infos << ",reaction_specification=\"re-sampling\"";
 		innerNode->setInfos(infos.str());
 		innerNode->setIsSampled(true);
-		unsigned r1 = R::runif(0,to_[0]->getOldUnsampledNodes()-1);
+		//unsigned r1 = R::runif(0,to_[0]->getOldUnsampledNodes()-1);
+		unsigned r1 = drawNodeIndex(to_[0]->getOldUnsampledNodes());
+		
 		// unsigned r1 = rand() % to_[0]->getOldUnsampledNodes(); // pioche aleatoirement un noeud de l'arbre correspondant a un individu non echantillonné
 		innerNode->addSon(to_[0]->popNonSampledNode(r1)); // relie ce noeud au nouveau noeud interne
 		ok = ok & to_[0]->decrementOldUnsampledNodes();
@@ -270,30 +304,43 @@ bool Reaction::performCoalescence(
 		const string& strReaction,
 		const double& time)
 {
+    unsigned donorIndex = indexFrom;
+    unsigned recipientIndex = 1 - indexFrom;
+  
+    if (from_[donorIndex]->getOldNodes() == 0 || from_[recipientIndex]->getOldNodes() == 0){
+      Rcpp::warning("Coalescence failed: no donor or recipient nodes available in compartments '%s' and '%s'.",
+                    from_[donorIndex]->getName().c_str(),
+                    from_[recipientIndex]->getName().c_str());
+      return false;
+    }
+
 		bool ok = true;
 		Node* innerNode = new Node("", time); // créé un nouveau noeud interne
-
+		
 		stringstream infos;
 		infos << innerNode->getInfos(); // ajoute des infos sur le noeud au cas où on voudrait les imprimer dans l'arbre
-		if (infos.str().size()>0)
+		if (infos.str().size()>0){
 			infos << ",";
+		}
 		infos << "reaction_string=\"" << strReaction << "\"";
 		infos << ",reaction_type=\"birth\"";
 		infos << ",reaction_specification=\"coalescence\"";
 		innerNode->setInfos(infos.str());
 
-		unsigned rRecipient = R::runif(0,from_[1-indexFrom]->getOldNodes()-1);
+		unsigned rRecipient = drawNodeIndex(from_[recipientIndex]->getOldNodes()); // R::runif(0,from_[1-indexFrom]->getOldNodes()-1);
 		// unsigned rRecipient = rand() % from_[1-indexFrom]->getOldNodes(); // pioche le nœud receveur
 		innerNode->addSon(from_[1-indexFrom]->popNode(rRecipient));
 		ok = ok & from_[1-indexFrom]->decrementOldNodes();
 		ok = ok & from_[1-indexFrom]->decrementSize();
 
-		unsigned rDonnor = R::runif(0,from_[indexFrom]->getOldNodes()-1);
+		unsigned rDonnor = drawNodeIndex(from_[donorIndex]->getOldNodes()); //R::runif(0,from_[indexFrom]->getOldNodes()-1);
 		// unsigned rDonnor = rand() % from_[indexFrom]->getOldNodes(); //pioche le nœud donneur
 		innerNode->addSon(from_[indexFrom]->popNode(rDonnor));
 		ok = ok & from_[indexFrom]->decrementOldNodes();
 		from_[indexFrom]->addNode(innerNode); // coalesce les deux noeuds à leur noeud parent
 		ok = ok & from_[indexFrom]->incrementNewNodes();
+		
+		innerNode->setIsSampled(true); // Ce nœud interne représente un événement visible 
 
 		return ok;
 }
@@ -318,7 +365,8 @@ bool Reaction::performInvisibleCoalescence(
 		innerNode->setInfos(infos.str());
 
 		// select a node to relocate
-		unsigned rRecipient = R::runif(0,from_[1-indexFrom]->getOldNodes()-1);
+		// unsigned rRecipient = R::runif(0,from_[1-indexFrom]->getOldNodes()-1);
+		unsigned rRecipient = drawNodeIndex(from_[1-indexFrom]->getOldNodes());
 		// unsigned rRecipient = rand() % from_[1-indexFrom]->getOldNodes();
 		// link it to the new inner node
 		innerNode->addSon(from_[1-indexFrom]->popNode(rRecipient));
@@ -341,7 +389,7 @@ int Reaction::evalMigration(
 		int res = leafcount;
 		bool ok = true ;
 		unsigned nbMigration = 0;
-		nbMigration = rhyper(nTimes, (double)from_[0]->getOldNodes(), from_[0]->getSize());
+		nbMigration = rhyper(nTimes, from_[0]->getOldNodes(), from_[0]->getSize());
 		for(unsigned i = 0 ; i < nbMigration ; i++){
 			ok = ok & performMigration(strReaction, time);
 		}
@@ -365,9 +413,11 @@ bool Reaction::performMigration(
 		infos << "reaction_string=\"" << strReaction << "\"";
 		infos << ",reaction_type=\"migration\"";
 		innerNode->setInfos(infos.str());
-		unsigned r1 = R::runif(0,from_[0]->getOldNodes()-1);
+		// unsigned r1 = R::runif(0,from_[0]->getOldNodes()-1);
+		unsigned r1 = drawNodeIndex(from_[0]->getOldNodes());
 		// unsigned r1 = rand() % from_[0]->getOldNodes(); // pioche aleatoirement un noued a migrer
 		innerNode->addSon(from_[0]->popNode(r1)); // relie ce noeud au nouveau noeud interne
+		innerNode->setIsSampled(true); // Nœud interne représentant un événement de migration visible
 		ok = ok & from_[0]->decrementOldNodes();
 		ok = ok & from_[0]->decrementSize();
 		to_[0]->addNode(innerNode); // ajoute le nouveau noeud interne au bon compartiment

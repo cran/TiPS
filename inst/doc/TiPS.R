@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::knit_hooks$set(
   margin = function(before, options, envir) {
     if (before) par(mgp = c(1.5, .5, 0), bty = "n", plt = c(.105, .97, .13, .97))
@@ -136,7 +136,7 @@ traj_mm <- safe_sir_simu(
 ## -----------------------------------------------------------------------------
 dates <- system.file("extdata", "SIR-dates.txt", package = "TiPS")
 
-## ---- results = "hide"--------------------------------------------------------
+## ----results = "hide"---------------------------------------------------------
 sir_tree <- simulate_tree(
   simuResults = traj_dm,
   dates = dates,

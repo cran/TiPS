@@ -83,7 +83,7 @@ simulate_tree <- function(simuResults, dates, deme, sampled, root, isFullTraject
 	if(checkArgs){
 
 		reactions <- simuResults$reactions
-		warning(simuResults$outFile)
+		# warning(simuResults$outFile)
 		if(length(simuResults$outFile) != 0 ){#& utils::file_test(op="-f", x=simuResults$outFile)){
 			trajectory <- utils::read.table(file = simuResults$outFile, header = T, stringsAsFactors = F, sep = "\t")
 		} else{

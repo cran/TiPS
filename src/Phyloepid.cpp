@@ -97,9 +97,15 @@ bool Phyloepid::simulationTree(){
 			stop_ = std::chrono::high_resolution_clock::now();
 			if (roots_[0]->getNbLeaves() != nbdates_){
 				ok = false;
+			  Rcpp::warning("Tree discarded: only %u leaves found, but %u sampling dates were expected.",
+                   roots_[0]->getNbLeaves(), nbdates_);
 			}
 		}
 	}
+// 	if (!ok) {
+// 	  Rcpp::warning("Tree simulation failed after %u attempt%s: no valid tree could be generated.",
+//                  nTrials_, nTrials_ > 1 ? "s" : "");
+// 	}
 
 	return ok;
 }
@@ -140,6 +146,7 @@ void Phyloepid::readReactions(List reactions) {
 		strReactions_.push_back(reactions[i]);
 
 		tmpReaction = new Reaction();
+		tmpReaction->setGenerator(&randomGenerator_);
 	  	string strReaction = reactions[i];
 	  	size_t equalPos = strReaction.find('=');
 	  	if (equalPos == string::npos){
@@ -254,7 +261,7 @@ bool Phyloepid::run(){
 
 
 		if (find(strReactions_.begin(), strReactions_.end(), strReaction) == strReactions_.end()){
-		    warning(" Error : Reactions given in input must be similar than those in the trajectory. Please enter correct reactions.");
+		    Rcpp::warning(" Error : Reactions given in input must be similar than those in the trajectory. Please enter correct reactions.");
 			return false;
 		}
 		else{ //reaction found
